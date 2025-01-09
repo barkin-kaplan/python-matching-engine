@@ -116,8 +116,20 @@ class RedBlackTree(Generic[KeyT, ValueT]):
             for item in self.__inorder(node.right):
                 yield item
             
-    def inorder(self) -> Generator[Tuple[KeyT, ValueT], None, None]:
+    def in_order(self) -> Generator[Tuple[KeyT, ValueT], None, None]:
         for item in self.__inorder(self.root):
+            yield item
+            
+    def __reverse_order(self, node: RBNode) -> Generator[Tuple[KeyT, ValueT], None, None]:
+        if node is not self.nil:
+            for item in self.__inorder(node.right):
+                yield item
+            yield node.key, node.value
+            for item in self.__inorder(node.left):
+                yield item
+                
+    def reverse_order(self) -> Generator[Tuple[KeyT, ValueT], None, None]:
+        for item in self.__reverse_order(self.root):
             yield item
 
     def __preorder(self, node: RBNode) -> Generator[ValueT, None, None]:

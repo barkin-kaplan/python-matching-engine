@@ -6,7 +6,7 @@
         "type": "debugpy",
         "request": "launch",
         "module": "pytest",
-        "args": ["${workspaceFolder}\\helper\\z_tests\\collections\\test_red_black_tree.py"],
+        "args": ["${workspaceFolder}\\tests\\matching_engine_core\\test_orderbook_manager.py"],
         "justMyCode": false
       }
     ]

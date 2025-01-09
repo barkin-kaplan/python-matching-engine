@@ -24,8 +24,6 @@ def get_sha512_hash_hex(s: str) -> str:
     return hash_hex
 
 
-def generate_uuid() -> str:
-    return str(uuid.uuid4())
 
 def generate_random_string(length: int, pool = _random_string_pool):
     s = ""

@@ -9,21 +9,21 @@ from helper.collections.red_black_tree import RBNode, RedBlackTree
 def test_insert():
     rb = RedBlackTree()
     rb[Decimal("0")] = "heyoo245"
-    print(list(rb.inorder()))
+    print(list(rb.in_order()))
     rb[Decimal("1")] = "heyoo24"
-    print(list(rb.inorder()))
+    print(list(rb.in_order()))
     rb[Decimal("2")] = "heyoo32"
-    print(list(rb.inorder()))
+    print(list(rb.in_order()))
     rb[Decimal("1")] = "heyoo26"
     value = rb.insert_or_get(Decimal("1"), "24tsfg")
     assert value == "heyoo26"
-    print(list(rb.inorder()))
+    print(list(rb.in_order()))
     del rb[Decimal("0")]
-    print(list(rb.inorder()))
+    print(list(rb.in_order()))
     del rb[Decimal("1")]
-    print(list(rb.inorder()))
+    print(list(rb.in_order()))
     del rb[Decimal("2")]
-    print(list(rb.inorder()))
+    print(list(rb.in_order()))
     
 def test_insert_rand():
     rb = RedBlackTree()

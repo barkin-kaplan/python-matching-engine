@@ -40,7 +40,7 @@ def test_insert():
     for num in random_nums:
         rb[num] = f"val{num}"
             
-    assert len(list(rb.inorder())) == len(set(random_nums))
+    assert len(list(rb.in_order())) == len(set(random_nums))
             
         
     
