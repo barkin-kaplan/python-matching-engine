@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 
 from matching_engine_core.models.side import Side
@@ -11,6 +11,10 @@ class Order:
     side: Side
     qty: Decimal
     price: Decimal
-    open_qty: Decimal
+    open_qty: Decimal = field(init=False)
     symbol: str
+    
+    def __post_init__(self):
+        self.open_qty = self.qty
+        
     

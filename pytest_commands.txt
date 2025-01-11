@@ -1,0 +1,5 @@
+in order to generate coverage reports we have two options
+    1 only line coverage
+        pytest --cov --cov-report=html
+    2 line and branch coverage
+        pytest --cov --cov-branch --cov-report=html

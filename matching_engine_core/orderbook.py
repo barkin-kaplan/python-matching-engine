@@ -54,13 +54,15 @@ class Orderbook:
                             order.open_qty -= trade_qty
                             trade = Trade(active_side=Side.Buy,
                                           buy_order_id=order.order_id,
-                                          sell_order_id=order.order_id,
+                                          sell_order_id=sell_order.order_id,
                                           qty=trade_qty,
                                           price=sell_order.price)
                             self._publish_trade(trade)
                             
                             if bk_decimal.is_epsilon_equal(sell_order.open_qty, Decimal("0")):
                                 sell_orders.dequeue()
+                                if sell_orders.is_empty:
+                                    self._best_ask = None
             if not bk_decimal.is_epsilon_equal(order.open_qty, Decimal("0")):
                 # place order into orderbook
                 orders = self._buy_levels[order.price]
@@ -86,7 +88,7 @@ class Orderbook:
                             buy_order.open_qty -= trade_qty
                             order.open_qty -= trade_qty
                             trade = Trade(active_side=Side.Sell,
-                                          buy_order_id=order.order_id,
+                                          buy_order_id=buy_order.order_id,
                                           sell_order_id=order.order_id,
                                           qty=trade_qty,
                                           price=buy_order.price)
@@ -94,6 +96,8 @@ class Orderbook:
                             
                             if bk_decimal.is_epsilon_equal(buy_order.open_qty, Decimal("0")):
                                 buy_orders.dequeue()
+                                if buy_orders.is_empty:
+                                    self._best_bid = None
             if not bk_decimal.is_epsilon_equal(order.open_qty, Decimal("0")):
                 # place order into orderbook
                 orders = self._sell_levels[order.price]
@@ -104,6 +108,8 @@ class Orderbook:
                 if self._best_ask is None or order.price < self._best_ask:
                     self._best_ask = order.price
                 orders.enqueue(order.order_id, order)
+                
+    # def cancel_order(order: Order):
                 
                             
             
