@@ -6,6 +6,7 @@ from helper.collections.red_black_tree import RedBlackTree
 from matching_engine_core.i_transaction_subscriber import ITransactionSubscriber
 from matching_engine_core.models.order import Order
 from matching_engine_core.models.order_status import OrderStatus
+from matching_engine_core.models.reject_codes import RejectCode
 from matching_engine_core.models.side import Side
 from matching_engine_core.models.trade import Trade
 
@@ -29,6 +30,14 @@ class Orderbook:
         for sub in self._t_subs:
             sub.on_order_update(order)
             
+    def _publish_cancel_reject(self, order: Order, reject_code: RejectCode):
+        for sub in self._t_subs:
+            sub.on_cancel_reject(order, reject_code)
+            
+    def _publish_replace_reject(self, order: Order, reject_code: RejectCode):
+        for sub in self._t_subs:
+            sub.on_replace_reject(order, reject_code)
+            
     def subscribe(self, sub: ITransactionSubscriber):
         if sub not in self._t_subs:
             self._t_subs.append(sub)
@@ -44,7 +53,9 @@ class Orderbook:
                 yield order
         
     def submit_order(self, order: Order):
-        order.status = OrderStatus.Open
+        # when replacing order status may be equal to PartiallyFilled
+        if order.status == OrderStatus.PendingNew:
+            order.status = OrderStatus.Open
         self._publish_order_update(order)
         if order.side == Side.Buy:
             if self._best_ask is not None and order.price >= self._best_ask:
@@ -124,14 +135,44 @@ class Orderbook:
                     self._best_ask = order.price
                 orders.enqueue(order.order_id, order)
                 
-    def cancel_order(self, order: Order):
+    def _cancel_without_publish(self, order: Order) -> Optional[RejectCode]:
+        orders = None
         if order.side == Side.Buy:
             orders = self._buy_levels[order.price]
-            if orders is not None:
-                orders.delete(order.order_id)
-                order.status = OrderStatus.Canceled
-                self._publish_order_update(order)
+        else:
+            orders = self._sell_levels[order.price]
+            
+        if orders is None:
+            return RejectCode.OrderDoesNotExist
+        
+        delete_result = orders.delete(order.order_id)
+        if not delete_result:
+            return RejectCode.OrderDoesNotExist
+            
+        order.status = OrderStatus.Canceled
+        return None
                 
+    def cancel_order(self, order: Order):
+        result = self._cancel_without_publish(order)
+        if isinstance(result, RejectCode):
+            self._publish_cancel_reject(order, result)
+        else:
+            self._publish_order_update(order)
+            
+    def replace_order(self, order: Order, new_price: Decimal, new_qty: Decimal):
+        if bk_decimal.epsilon_gt(new_qty, order.open_qty):
+            self._publish_replace_reject(order, RejectCode.NewQtyCantBeLessThanOpenQty)
+            return
+        result = self._cancel_without_publish(order)
+        if isinstance(result, RejectCode):
+            self._publish_replace_reject(order, result)
+        else:
+            order.price = new_price
+            order.qty = new_qty
+            self.submit_order(order)
+            
+        
+            
                 
                 
                             

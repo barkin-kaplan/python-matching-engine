@@ -1,11 +1,12 @@
 import copy
 from decimal import Decimal
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from unittest.mock import MagicMock
 from helper import string_helper
 from matching_engine_core.i_transaction_subscriber import ITransactionSubscriber
 from matching_engine_core.models.order import Order
 from matching_engine_core.models.order_status import OrderStatus
+from matching_engine_core.models.reject_codes import RejectCode
 from matching_engine_core.models.side import Side
 from matching_engine_core.models.trade import Trade
 from matching_engine_core.orderbook import Orderbook
@@ -15,6 +16,8 @@ class MockTransSubscriber(ITransactionSubscriber):
         super().__init__()
         self.trades: List[Trade] = []
         self.order_updates: Dict[str, List[Order]] = dict()
+        self.cancel_rejects: Dict[str, List[Tuple[Order, RejectCode]]] = dict()
+        self.replace_rejects: Dict[str, List[Tuple[Order, RejectCode]]] = dict()
         
     def on_trade(self, trade: Trade):
         self.trades.append(trade)
@@ -24,16 +27,38 @@ class MockTransSubscriber(ITransactionSubscriber):
         related_order_updates = self.order_updates.get(order_copy.order_id)
         if related_order_updates is None:
             related_order_updates = list()
-            related_order_updates.append(order_copy)
             self.order_updates[order_copy.order_id] = related_order_updates
+        related_order_updates.append(order_copy)
         
-def submit_order(ob: Orderbook, price: Decimal, qty: Decimal, side: Side):
+    def on_cancel_reject(self, order: Order, reject_code: RejectCode):
+        order_copy = copy.deepcopy(order)
+        related_rejects = self.cancel_rejects.get(order_copy.order_id)
+        if related_rejects is None:
+            related_rejects = list()
+            self.cancel_rejects[order_copy.order_id] = related_rejects
+        related_rejects.append((order_copy, reject_code))
+    
+    def on_replace_reject(self, order: Order, reject_code: RejectCode):
+        order_copy = copy.deepcopy(order)
+        related_rejects = self.replace_rejects.get(order_copy.order_id)
+        if related_rejects is None:
+            related_rejects = list()
+            self.replace_rejects[order_copy.order_id] = related_rejects
+        related_rejects.append((order_copy, reject_code))
+    
+def create_order(price: Decimal, qty: Decimal, side: Side):
     order = Order(cl_ord_id=string_helper.generate_uuid(),
                   order_id=string_helper.generate_uuid(),
                   side=side,
                   qty=qty,
                   price=price,
                   symbol="test")
+    
+    return order
+
+        
+def submit_order(ob: Orderbook, price: Decimal, qty: Decimal, side: Side):
+    order = create_order(price, qty, side)
     ob.submit_order(order)
     return order
     
@@ -90,6 +115,10 @@ def test_match_single_order():
     assert_orders_length(ob, 0, 0)
     assert buy_order.status == OrderStatus.Filled
     assert sell_order.status == OrderStatus.Filled
+    assert subscriber.order_updates[buy_order.order_id][0].status == OrderStatus.Open
+    assert subscriber.order_updates[buy_order.order_id][1].status == OrderStatus.Filled
+    assert subscriber.order_updates[sell_order.order_id][0].status == OrderStatus.Open
+    assert subscriber.order_updates[sell_order.order_id][1].status == OrderStatus.Filled
     
 def test_single_partial_fill():
     ob = Orderbook("test")
@@ -105,6 +134,14 @@ def test_single_partial_fill():
     assert subscriber.trades[0].qty == Decimal("0.000000003")
     assert bo.status == OrderStatus.PartiallyFilled
     assert so.status == OrderStatus.Filled
+    assert len(subscriber.order_updates) == 2
+    assert len(subscriber.order_updates[bo.order_id]) == 2
+    assert len(subscriber.order_updates[so.order_id]) == 2
+    assert subscriber.order_updates[bo.order_id][0].status == OrderStatus.Open
+    assert subscriber.order_updates[bo.order_id][1].status == OrderStatus.PartiallyFilled
+    assert subscriber.order_updates[so.order_id][0].status == OrderStatus.Open
+    assert subscriber.order_updates[so.order_id][1].status == OrderStatus.Filled
+    
     
 def test_place_two_level_both_sides():
     ob = Orderbook("test")
@@ -117,6 +154,7 @@ def test_place_two_level_both_sides():
     assert buy_orders[0].open_qty == Decimal("0.000000006")
     assert buy_orders[1].open_qty == Decimal("0.000000007")
     assert buy_orders[0].status == buy_orders[1].status == OrderStatus.Open
+    assert buy_orders[1].status == buy_orders[1].status == OrderStatus.Open
     submit_order(ob, price=Decimal("0.000000006"), qty=Decimal("0.000000011"), side=Side.Sell)
     submit_order(ob, price=Decimal("0.000000007"), qty=Decimal("0.000000013"), side=Side.Sell)
     assert_orders_length(ob, 2, 2)
@@ -126,6 +164,7 @@ def test_place_two_level_both_sides():
     assert sell_orders[0].qty == Decimal("0.000000011")
     assert sell_orders[1].qty == Decimal("0.000000013")
     assert sell_orders[0].status == sell_orders[1].status == OrderStatus.Open
+    assert sell_orders[1].status == sell_orders[1].status == OrderStatus.Open
     
 def test_place_buy_match_with_two_sell_orders_at_same_level():
     ob = Orderbook("test")    
@@ -327,3 +366,74 @@ def test_increasing_best_bid():
     assert ob._best_bid == o2.price
     o3 = submit_order(ob, price=Decimal("0.000000004"), qty=Decimal("0.000000004"), side=Side.Buy)
     assert ob._best_bid == o2.price
+    
+def test_single_cancel():
+    ob = Orderbook("test")
+    subscriber = MockTransSubscriber()
+    ob.subscribe(subscriber)
+    o1 = submit_order(ob, price=Decimal("0.000000003"), qty=Decimal("0.000000004"), side=Side.Buy)
+    ob.cancel_order(o1)
+    assert len(subscriber.order_updates[o1.order_id]) == 2
+    assert subscriber.order_updates[o1.order_id][1].status == OrderStatus.Canceled
+    assert o1.status == OrderStatus.Canceled
+    assert len(list(ob.in_order_buy_orders())) == 0
+    assert len(list(ob.in_order_sell_orders())) == 0
+    
+def test_partial_filled_cancel():
+    ob = Orderbook("test")
+    subscriber = MockTransSubscriber()
+    ob.subscribe(subscriber)
+    bo = submit_order(ob, price=Decimal("0.000000003"), qty=Decimal("0.000000004"), side=Side.Buy)
+    so = submit_order(ob, price=Decimal("0.000000003"), qty=Decimal("0.000000002"), side=Side.Sell)
+    ob.cancel_order(bo)
+    assert len(subscriber.order_updates[bo.order_id]) == 3
+    assert subscriber.order_updates[bo.order_id][0].status == OrderStatus.Open
+    assert subscriber.order_updates[bo.order_id][1].status == OrderStatus.PartiallyFilled
+    assert subscriber.order_updates[bo.order_id][2].status == OrderStatus.Canceled
+    assert bo.status == OrderStatus.Canceled
+    assert len(list(ob.in_order_buy_orders())) == 0
+    assert len(list(ob.in_order_sell_orders())) == 0
+    
+def test_non_existing_cancel():
+    ob = Orderbook("test")
+    subscriber = MockTransSubscriber()
+    ob.subscribe(subscriber)
+    bo = create_order(price=Decimal("0.000000009"), qty=Decimal("0.000000007"), side=Side.Buy)
+    ob.cancel_order(bo)
+    order_updates = subscriber.order_updates.get(bo.order_id)
+    assert order_updates is None
+    assert len(subscriber.cancel_rejects) == 1
+    assert len(subscriber.cancel_rejects[bo.order_id]) == 1
+    assert subscriber.cancel_rejects[bo.order_id][0][1] == RejectCode.OrderDoesNotExist
+    
+def test_non_existing_cancel_on_existing_level():
+    ob = Orderbook("test")
+    subscriber = MockTransSubscriber()
+    ob.subscribe(subscriber)
+    bo1 = submit_order(ob, price=Decimal("0.000000009"), qty=Decimal("0.000000004"), side=Side.Buy)
+    bo = create_order(price=Decimal("0.000000009"), qty=Decimal("0.000000007"), side=Side.Buy)
+    ob.cancel_order(bo)
+    order_updates = subscriber.order_updates.get(bo.order_id)
+    assert order_updates is None
+    assert len(subscriber.cancel_rejects) == 1
+    assert len(subscriber.cancel_rejects[bo.order_id]) == 1
+    assert subscriber.cancel_rejects[bo.order_id][0][1] == RejectCode.OrderDoesNotExist
+    
+def test_cancel_priority():
+    ob = Orderbook("test")
+    subscriber = MockTransSubscriber()
+    ob.subscribe(subscriber)
+    bo1 = submit_order(ob, price=Decimal("0.000000003"), qty=Decimal("0.000000004"), side=Side.Buy)
+    bo2 = submit_order(ob, price=Decimal("0.000000004"), qty=Decimal("0.000000004"), side=Side.Buy)
+    bo3 = submit_order(ob, price=Decimal("0.000000004"), qty=Decimal("0.000000004"), side=Side.Buy)
+    ob.cancel_order(bo2)
+    buy_orders = list(ob.in_order_buy_orders())
+    assert buy_orders[0] is bo3
+    assert buy_orders[1] is bo1
+    ob.cancel_order(bo3)
+    buy_orders = list(ob.in_order_buy_orders())
+    assert len(buy_orders) == 1
+    assert buy_orders[0] is bo1
+    assert len(subscriber.cancel_rejects) == 0
+    assert len(subscriber.replace_rejects) == 0
+    

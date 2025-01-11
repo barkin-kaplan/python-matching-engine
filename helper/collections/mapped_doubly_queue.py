@@ -70,12 +70,12 @@ class MappedDoublyQueue(Generic[KeyT, ValueT]):
         del self.map[key]
         return value
 
-    def delete(self, key: KeyT):
+    def delete(self, key: KeyT) -> bool:
         """
         Remove the node with the given key from the queue.
         """
         if key not in self.map:
-            raise KeyError(f"Key {key} does not exist in the queue.")
+            return False
 
         node_to_remove = self.map[key]
 
@@ -94,10 +94,18 @@ class MappedDoublyQueue(Generic[KeyT, ValueT]):
 
         # Remove from map
         del self.map[key]
+        return True
         
     def traverse(self) -> Generator[Tuple[KeyT, ValueT], None, None]:
         iter = self.head
         while iter is not None:
             yield iter.key, iter.value
             iter = iter.next
+            
+    def get(self, key: KeyT) -> Optional[ValueT]:
+        node = self.map.get(key)
+        if node is None:
+            return None
+        
+        return node.value
             
