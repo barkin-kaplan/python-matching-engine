@@ -5,6 +5,7 @@ from helper.collections.mapped_doubly_queue import MappedDoublyQueue
 from helper.collections.red_black_tree import RedBlackTree
 from matching_engine_core.i_transaction_subscriber import ITransactionSubscriber
 from matching_engine_core.models.order import Order
+from matching_engine_core.models.order_status import OrderStatus
 from matching_engine_core.models.side import Side
 from matching_engine_core.models.trade import Trade
 
@@ -24,6 +25,10 @@ class Orderbook:
         for sub in self._t_subs:
             sub.on_trade(trade)
             
+    def _publish_order_update(self, order: Order):
+        for sub in self._t_subs:
+            sub.on_order_update(order)
+            
     def subscribe(self, sub: ITransactionSubscriber):
         if sub not in self._t_subs:
             self._t_subs.append(sub)
@@ -39,6 +44,8 @@ class Orderbook:
                 yield order
         
     def submit_order(self, order: Order):
+        order.status = OrderStatus.Open
+        self._publish_order_update(order)
         if order.side == Side.Buy:
             if self._best_ask is not None and order.price >= self._best_ask:
                 # check active matches
@@ -50,13 +57,17 @@ class Orderbook:
                                 trade_qty = order.open_qty
                             else:
                                 trade_qty = sell_order.open_qty
-                            sell_order.open_qty -= trade_qty
-                            order.open_qty -= trade_qty
+                            sell_order.filled_qty += trade_qty
+                            order.filled_qty += trade_qty
                             trade = Trade(active_side=Side.Buy,
                                           buy_order_id=order.order_id,
                                           sell_order_id=sell_order.order_id,
                                           qty=trade_qty,
                                           price=sell_order.price)
+                            sell_order.update_state_after_transaction()
+                            order.update_state_after_transaction()
+                            self._publish_order_update(sell_order)
+                            self._publish_order_update(order)
                             self._publish_trade(trade)
                             
                             if bk_decimal.is_epsilon_equal(sell_order.open_qty, Decimal("0")):
@@ -85,13 +96,17 @@ class Orderbook:
                                 trade_qty = order.open_qty
                             else:
                                 trade_qty = buy_order.open_qty
-                            buy_order.open_qty -= trade_qty
-                            order.open_qty -= trade_qty
+                            buy_order.filled_qty += trade_qty
+                            order.filled_qty += trade_qty
                             trade = Trade(active_side=Side.Sell,
                                           buy_order_id=buy_order.order_id,
                                           sell_order_id=order.order_id,
                                           qty=trade_qty,
                                           price=buy_order.price)
+                            buy_order.update_state_after_transaction()
+                            order.update_state_after_transaction()
+                            self._publish_order_update(buy_order)
+                            self._publish_order_update(order)
                             self._publish_trade(trade)
                             
                             if bk_decimal.is_epsilon_equal(buy_order.open_qty, Decimal("0")):
@@ -109,7 +124,15 @@ class Orderbook:
                     self._best_ask = order.price
                 orders.enqueue(order.order_id, order)
                 
-    # def cancel_order(order: Order):
+    def cancel_order(self, order: Order):
+        if order.side == Side.Buy:
+            orders = self._buy_levels[order.price]
+            if orders is not None:
+                orders.delete(order.order_id)
+                order.status = OrderStatus.Canceled
+                self._publish_order_update(order)
+                
+                
                 
                             
             

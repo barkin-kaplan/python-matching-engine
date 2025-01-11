@@ -1,9 +1,11 @@
+import copy
 from decimal import Decimal
-from typing import List
+from typing import Dict, List
 from unittest.mock import MagicMock
 from helper import string_helper
 from matching_engine_core.i_transaction_subscriber import ITransactionSubscriber
 from matching_engine_core.models.order import Order
+from matching_engine_core.models.order_status import OrderStatus
 from matching_engine_core.models.side import Side
 from matching_engine_core.models.trade import Trade
 from matching_engine_core.orderbook import Orderbook
@@ -12,9 +14,18 @@ class MockTransSubscriber(ITransactionSubscriber):
     def __init__(self):
         super().__init__()
         self.trades: List[Trade] = []
+        self.order_updates: Dict[str, List[Order]] = dict()
         
     def on_trade(self, trade: Trade):
         self.trades.append(trade)
+        
+    def on_order_update(self, order: Order):
+        order_copy = copy.deepcopy(order)
+        related_order_updates = self.order_updates.get(order_copy.order_id)
+        if related_order_updates is None:
+            related_order_updates = list()
+            related_order_updates.append(order_copy)
+            self.order_updates[order_copy.order_id] = related_order_updates
         
 def submit_order(ob: Orderbook, price: Decimal, qty: Decimal, side: Side):
     order = Order(cl_ord_id=string_helper.generate_uuid(),
@@ -34,19 +45,33 @@ def assert_orders_length(ob: Orderbook, buy_orders_length: int, sell_orders_leng
 
 def test_single_order_entry_buy():
     ob = Orderbook("test")
-    submit_order(ob, price=Decimal("0.000000005"), qty=Decimal("0.000000003"), side=Side.Buy)
+    subscriber = MockTransSubscriber()
+    ob.subscribe(subscriber)
+    order = submit_order(ob, price=Decimal("0.000000005"), qty=Decimal("0.000000003"), side=Side.Buy)
     assert_orders_length(ob, 1, 0)
     buy_orders = list(ob.in_order_buy_orders())
     assert buy_orders[0].qty == Decimal("0.000000003")
     assert ob._best_bid == Decimal("0.000000005")
+    assert buy_orders[0].status == OrderStatus.Open
+    o_updates = subscriber.order_updates.get(order.order_id)
+    assert o_updates is not None
+    assert len(o_updates) == 1
+    assert o_updates[0].status == OrderStatus.Open
     
 def test_single_order_entry_sell():
     ob = Orderbook("test")
-    submit_order(ob, price=Decimal("0.000000005"), qty=Decimal("0.000000003"), side=Side.Sell)
+    subscriber = MockTransSubscriber()
+    ob.subscribe(subscriber)
+    order = submit_order(ob, price=Decimal("0.000000005"), qty=Decimal("0.000000003"), side=Side.Sell)
     assert_orders_length(ob, 0, 1)
     buy_orders = list(ob.in_order_sell_orders())
     assert buy_orders[0].qty == Decimal("0.000000003")
     assert ob._best_ask == Decimal("0.000000005")
+    assert buy_orders[0].status == OrderStatus.Open
+    o_updates = subscriber.order_updates.get(order.order_id)
+    assert o_updates is not None
+    assert len(o_updates) == 1
+    assert o_updates[0].status == OrderStatus.Open
     
 def test_match_single_order():
     ob = Orderbook("test")
@@ -63,19 +88,23 @@ def test_match_single_order():
     assert ob._best_bid is None
     assert ob._best_ask is None
     assert_orders_length(ob, 0, 0)
+    assert buy_order.status == OrderStatus.Filled
+    assert sell_order.status == OrderStatus.Filled
     
 def test_single_partial_fill():
     ob = Orderbook("test")
     subscriber = MockTransSubscriber()
     ob.subscribe(subscriber)
-    submit_order(ob, price=Decimal("0.000000005"), qty=Decimal("0.000000006"), side=Side.Buy)
+    bo = submit_order(ob, price=Decimal("0.000000005"), qty=Decimal("0.000000006"), side=Side.Buy)
     assert_orders_length(ob, 1, 0)
-    submit_order(ob, price=Decimal("0.000000005"), qty=Decimal("0.000000003"), side=Side.Sell)
+    so = submit_order(ob, price=Decimal("0.000000005"), qty=Decimal("0.000000003"), side=Side.Sell)
     assert_orders_length(ob, 1, 0)
     buy_orders = list(ob.in_order_buy_orders())
     assert buy_orders[0].open_qty == Decimal("0.000000003")
     assert len(subscriber.trades) == 1
     assert subscriber.trades[0].qty == Decimal("0.000000003")
+    assert bo.status == OrderStatus.PartiallyFilled
+    assert so.status == OrderStatus.Filled
     
 def test_place_two_level_both_sides():
     ob = Orderbook("test")
@@ -87,6 +116,7 @@ def test_place_two_level_both_sides():
     assert buy_orders[1].price == Decimal("0.000000004")
     assert buy_orders[0].open_qty == Decimal("0.000000006")
     assert buy_orders[1].open_qty == Decimal("0.000000007")
+    assert buy_orders[0].status == buy_orders[1].status == OrderStatus.Open
     submit_order(ob, price=Decimal("0.000000006"), qty=Decimal("0.000000011"), side=Side.Sell)
     submit_order(ob, price=Decimal("0.000000007"), qty=Decimal("0.000000013"), side=Side.Sell)
     assert_orders_length(ob, 2, 2)
@@ -95,6 +125,7 @@ def test_place_two_level_both_sides():
     assert sell_orders[1].price == Decimal("0.000000007")
     assert sell_orders[0].qty == Decimal("0.000000011")
     assert sell_orders[1].qty == Decimal("0.000000013")
+    assert sell_orders[0].status == sell_orders[1].status == OrderStatus.Open
     
 def test_place_buy_match_with_two_sell_orders_at_same_level():
     ob = Orderbook("test")    
@@ -112,6 +143,9 @@ def test_place_buy_match_with_two_sell_orders_at_same_level():
     assert subscriber.trades[1].price == Decimal("0.000000006")
     assert subscriber.trades[1].buy_order_id == bo1.order_id
     assert subscriber.trades[1].sell_order_id == so2.order_id
+    assert so1.status == OrderStatus.Filled
+    assert so2.status == OrderStatus.PartiallyFilled
+    assert bo1.status == OrderStatus.Filled
     
 def test_place_sell_match_with_two_buy_orders_at_same_level():
     ob = Orderbook("test")    
@@ -130,7 +164,9 @@ def test_place_sell_match_with_two_buy_orders_at_same_level():
     assert subscriber.trades[1].price == Decimal("0.000000006")
     assert subscriber.trades[1].sell_order_id == so1.order_id
     assert subscriber.trades[1].buy_order_id == bo2.order_id
-    
+    assert bo1.status == OrderStatus.Filled
+    assert bo2.status == OrderStatus.PartiallyFilled
+    assert so1.status == OrderStatus.Filled    
 
 def test_place_buy_match_with_two_sell_orders_at_different_levels_leaving_open_at_third_level():
     ob = Orderbook("test")    
@@ -155,8 +191,11 @@ def test_place_buy_match_with_two_sell_orders_at_different_levels_leaving_open_a
     sell_orders = list(ob.in_order_sell_orders())
     assert sell_orders[0] == so3
     assert so3.open_qty == so3.qty
-    
-    
+    assert so1.status == OrderStatus.Filled
+    assert so2.status == OrderStatus.Filled
+    assert so3.status == OrderStatus.Open
+    assert bo1.status == OrderStatus.Filled
+        
 def test_place_sell_match_with_two_buy_orders_at_different_levels_leaving_open_at_third_level():
     ob = Orderbook("test")    
     subscriber = MockTransSubscriber()
@@ -181,6 +220,10 @@ def test_place_sell_match_with_two_buy_orders_at_different_levels_leaving_open_a
     buy_orders = list(ob.in_order_buy_orders())
     assert buy_orders[0] == bo3
     assert bo3.open_qty == bo3.qty
+    assert bo1.status == OrderStatus.Filled
+    assert bo2.status == OrderStatus.Filled
+    assert bo3.status == OrderStatus.Open
+    assert so1.status == OrderStatus.Filled
     
 def test_place_buy_sweep_multiple_orders_at_multiple_levels():
     ob = Orderbook("test")    
@@ -209,6 +252,8 @@ def test_place_buy_sweep_multiple_orders_at_multiple_levels():
     assert bo1.open_qty == bo1.qty - sum([o.qty for o in sell_orders])
     assert ob._best_bid == bo1.price
     assert ob._best_ask is None
+    assert all([o.status == OrderStatus.Filled for o in sell_orders])
+    assert bo1.status == OrderStatus.PartiallyFilled
     
     
 def test_place_sell_sweep_multiple_orders_at_multiple_levels():
@@ -238,6 +283,8 @@ def test_place_sell_sweep_multiple_orders_at_multiple_levels():
     assert so1.open_qty == so1.qty - sum([o.qty for o in buy_orders])
     assert ob._best_bid is None
     assert ob._best_ask == so1.price
+    assert all([o.status == OrderStatus.Filled for o in buy_orders])
+    assert so1.status == OrderStatus.PartiallyFilled
     
 def test_constant_best_ask():
     ob = Orderbook("test")
@@ -271,7 +318,7 @@ def test_decreasing_best_ask():
     o3 = submit_order(ob, price=Decimal("0.000000002"), qty=Decimal("0.000000004"), side=Side.Sell)
     assert ob._best_ask == o2.price
     
-def test_decreasing_best_bid():
+def test_increasing_best_bid():
     ob = Orderbook("test")
     o1 = submit_order(ob, price=Decimal("0.000000003"), qty=Decimal("0.000000004"), side=Side.Buy)
     assert ob._best_ask is None
