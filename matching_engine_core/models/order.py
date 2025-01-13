@@ -22,7 +22,7 @@ class Order:
         return self.qty - self.filled_qty
         
     def update_state_after_transaction(self):
-        if bk_decimal.is_epsilon_equal(self.filled_qty, self.qty):
+        if bk_decimal.epsilon_equal(self.filled_qty, self.qty):
             self.status = OrderStatus.Filled
         elif bk_decimal.epsilon_gt(self.filled_qty, Decimal("0")):
             self.status = OrderStatus.PartiallyFilled

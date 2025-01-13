@@ -16,11 +16,17 @@ class Orderbook:
         self.symbol = symbol
         # price levels should be n sorted order for fast inorder traversal, 
         # orders at a price level has priority based on time and should be removed in constant time with random access
-        self._best_bid: Optional[Decimal] = None
-        self._best_ask: Optional[Decimal] = None
         self._buy_levels: RedBlackTree[Decimal, MappedDoublyQueue[str, Order]] = RedBlackTree()
         self._sell_levels: RedBlackTree[Decimal, MappedDoublyQueue[str, Order]] = RedBlackTree()
         self._t_subs: List[ITransactionSubscriber] = []
+        
+    @property
+    def best_bid(self) -> Optional[Decimal]:
+        return self._buy_levels.maximum
+    
+    @property
+    def best_ask(self) -> Optional[Decimal]:
+        return self._sell_levels.minimum
         
     def _publish_trade(self, trade: Trade):
         for sub in self._t_subs:
@@ -58,11 +64,11 @@ class Orderbook:
             order.status = OrderStatus.Open
         self._publish_order_update(order)
         if order.side == Side.Buy:
-            if self._best_ask is not None and order.price >= self._best_ask:
+            if self.best_ask is not None and order.price >= self.best_ask:
                 # check active matches
                 for price, sell_orders in self._sell_levels.in_order():
                     if price <= order.price:
-                        while not sell_orders.is_empty and not bk_decimal.is_epsilon_equal(order.open_qty, Decimal("0")):
+                        while not sell_orders.is_empty and not bk_decimal.epsilon_equal(order.open_qty, Decimal("0")):
                             sell_order = cast(Order, sell_orders.peek())
                             if sell_order.open_qty >= order.open_qty:
                                 trade_qty = order.open_qty
@@ -81,27 +87,24 @@ class Orderbook:
                             self._publish_order_update(order)
                             self._publish_trade(trade)
                             
-                            if bk_decimal.is_epsilon_equal(sell_order.open_qty, Decimal("0")):
+                            if bk_decimal.epsilon_equal(sell_order.open_qty, Decimal("0")):
                                 sell_orders.dequeue()
                                 if sell_orders.is_empty:
-                                    self._best_ask = None
-            if not bk_decimal.is_epsilon_equal(order.open_qty, Decimal("0")):
+                                    del self._sell_levels[sell_order.price]
+            if not bk_decimal.epsilon_equal(order.open_qty, Decimal("0")):
                 # place order into orderbook
                 orders = self._buy_levels[order.price]
                 if orders is None:
                     orders = MappedDoublyQueue()
                     self._buy_levels[order.price] = orders
-                    
-                if self._best_bid is None or order.price > self._best_bid:
-                    self._best_bid = order.price
                 orders.enqueue(order.order_id, order)
                 
         else:
-            if self._best_bid is not None and order.price <= self._best_bid:
+            if self.best_bid is not None and order.price <= self.best_bid:
                 # check active matches
                 for price, buy_orders in self._buy_levels.reverse_order():
                     if price >= order.price:
-                        while not buy_orders.is_empty and not bk_decimal.is_epsilon_equal(order.open_qty, Decimal("0")):
+                        while not buy_orders.is_empty and not bk_decimal.epsilon_equal(order.open_qty, Decimal("0")):
                             buy_order = cast(Order, buy_orders.peek())
                             if buy_order.open_qty >= order.open_qty:
                                 trade_qty = order.open_qty
@@ -120,19 +123,17 @@ class Orderbook:
                             self._publish_order_update(order)
                             self._publish_trade(trade)
                             
-                            if bk_decimal.is_epsilon_equal(buy_order.open_qty, Decimal("0")):
+                            if bk_decimal.epsilon_equal(buy_order.open_qty, Decimal("0")):
                                 buy_orders.dequeue()
                                 if buy_orders.is_empty:
-                                    self._best_bid = None
-            if not bk_decimal.is_epsilon_equal(order.open_qty, Decimal("0")):
+                                    del self._buy_levels[buy_order.price]
+            if not bk_decimal.epsilon_equal(order.open_qty, Decimal("0")):
                 # place order into orderbook
                 orders = self._sell_levels[order.price]
                 if orders is None:
                     orders = MappedDoublyQueue()
                     self._sell_levels[order.price] = orders
                     
-                if self._best_ask is None or order.price < self._best_ask:
-                    self._best_ask = order.price
                 orders.enqueue(order.order_id, order)
                 
     def _cancel_without_publish(self, order: Order) -> Optional[RejectCode]:
@@ -148,8 +149,7 @@ class Orderbook:
         delete_result = orders.delete(order.order_id)
         if not delete_result:
             return RejectCode.OrderDoesNotExist
-            
-        order.status = OrderStatus.Canceled
+        
         return None
                 
     def cancel_order(self, order: Order):
@@ -157,10 +157,14 @@ class Orderbook:
         if isinstance(result, RejectCode):
             self._publish_cancel_reject(order, result)
         else:
+            order.status = OrderStatus.Canceled
             self._publish_order_update(order)
             
     def replace_order(self, order: Order, new_price: Decimal, new_qty: Decimal):
-        if bk_decimal.epsilon_gt(new_qty, order.open_qty):
+        if bk_decimal.epsilon_equal(order.price, new_price) and bk_decimal.epsilon_equal(order.qty, new_qty):
+            self._publish_replace_reject(order, RejectCode.PriceOrQtyMustBeChanged)
+            return 
+        if bk_decimal.epsilon_lt(new_qty, order.filled_qty):
             self._publish_replace_reject(order, RejectCode.NewQtyCantBeLessThanOpenQty)
             return
         result = self._cancel_without_publish(order)

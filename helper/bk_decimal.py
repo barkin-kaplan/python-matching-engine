@@ -41,21 +41,24 @@ def decimal_without_redundant_zeroes(s: Union[str, Decimal]):
     return Decimal(s)
 
 
-def is_epsilon_equal(d1: Decimal, d2: Decimal, epsilon: Decimal = epsilon):
+def epsilon_equal(d1: Decimal, d2: Decimal, epsilon: Decimal = epsilon):
     diff = d1 - d2
     return abs(diff) < epsilon
 
+def epsilon_zero(d: Decimal) -> bool:
+    return epsilon_equal(d, Decimal("0"))
+
 def epsilon_lt(d1: Decimal, d2: Decimal, epsilon: Decimal = epsilon):
-    return d1 < d2 and not is_epsilon_equal(d1, d2, epsilon)
+    return d1 < d2 and not epsilon_equal(d1, d2, epsilon)
 
 def epsilon_lte(d1: Decimal, d2: Decimal, epsilon: Decimal = epsilon):
-    return d1 <= d2 or is_epsilon_equal(d1, d2, epsilon)
+    return d1 <= d2 or epsilon_equal(d1, d2, epsilon)
 
 def epsilon_gt(d1: Decimal, d2: Decimal, epsilon: Decimal = epsilon):
-    return d1 > d2 and not is_epsilon_equal(d1, d2, epsilon)
+    return d1 > d2 and not epsilon_equal(d1, d2, epsilon)
 
 def epsilon_gte(d1: Decimal, d2: Decimal, epsilon: Decimal = epsilon):
-    return d1 >= d2 or is_epsilon_equal(d1, d2, epsilon)
+    return d1 >= d2 or epsilon_equal(d1, d2, epsilon)
 
 # usage: floor_decimal(Decimal("0.6324"), 2)
 def floor_decimal(value, precision):

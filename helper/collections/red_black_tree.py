@@ -59,6 +59,20 @@ class RedBlackTree(Generic[KeyT, ValueT]):
         # Use a single Nil node as a "sentinel" for all leaves
         self.nil = Nil()
         self.root = self.nil
+        self._minimum_node: RBNode = self.nil
+        self._maximum_node: RBNode = self.nil
+        
+    @property
+    def minimum(self) -> Optional[KeyT]:
+        if self._minimum_node is self.nil:
+            return None
+        return self._minimum_node.key
+    
+    @property
+    def maximum(self) -> Optional[KeyT]:
+        if self._maximum_node is self.nil:
+            return None
+        return self._maximum_node.key
 
     def __repr__(self):
         return f"RedBlackTree({self.root})"
@@ -77,7 +91,7 @@ class RedBlackTree(Generic[KeyT, ValueT]):
                 node = node.right
         return node
 
-    def minimum(self, node: RBNode) -> RBNode:
+    def _minimum(self, node: RBNode) -> RBNode:
         """Find the minimum node in the subtree rooted at node.
 
         Args:
@@ -90,7 +104,7 @@ class RedBlackTree(Generic[KeyT, ValueT]):
             node = node.left
         return node
 
-    def maximum(self, node: RBNode) -> RBNode:
+    def _maximum(self, node: RBNode) -> RBNode:
         """Find the maximum node in the subtree rooted at node.
 
         Args:
@@ -122,10 +136,10 @@ class RedBlackTree(Generic[KeyT, ValueT]):
             
     def __reverse_order(self, node: RBNode) -> Generator[Tuple[KeyT, ValueT], None, None]:
         if node is not self.nil:
-            for item in self.__inorder(node.right):
+            for item in self.__reverse_order(node.right):
                 yield item
             yield node.key, node.value
-            for item in self.__inorder(node.left):
+            for item in self.__reverse_order(node.left):
                 yield item
                 
     def reverse_order(self) -> Generator[Tuple[KeyT, ValueT], None, None]:
@@ -196,7 +210,10 @@ class RedBlackTree(Generic[KeyT, ValueT]):
         Args:
             new_node: the node to insert.
         """
-
+        if self._minimum_node is self.nil or self._minimum_node.key > new_node.key:
+            self._minimum_node = new_node
+        if self._maximum_node is self.nil or self._maximum_node.key < new_node.key:
+            self._maximum_node = new_node
         # Typical Binary Search Tree insertion method
         node = self.root
         parent = None
@@ -283,7 +300,7 @@ class RedBlackTree(Generic[KeyT, ValueT]):
 
         Args:
             node: the node to delete.
-        """
+        """ 
         original_color = node.color
         if node.left == self.nil:
             x = node.right
@@ -292,7 +309,7 @@ class RedBlackTree(Generic[KeyT, ValueT]):
             x = node.left
             self.__shift_nodes(node, x)
         else:
-            v = self.minimum(node.right)
+            v = self._minimum(node.right)
             original_color = v.color
             x = v.right
             if v.parent == node:
@@ -307,6 +324,19 @@ class RedBlackTree(Generic[KeyT, ValueT]):
             v.color = node.color
         if original_color == _RBColor.Black:
             self.__fix_delete_violations(x)
+            
+        if node.key == self._maximum_node.key:
+            if self.root is not self.nil:
+                max_node = self._maximum(self.root)
+                self._maximum_node = max_node
+            else:
+                self._maximum_node = self.nil
+        if node.key == self._minimum_node.key:
+            if self.root is not self.nil:
+                min_node = self._minimum(self.root)
+                self._minimum_node = min_node
+            else:
+                self._minimum_node = self.nil
 
     def __fix_delete_violations(self, node: RBNode):
         """Fix any Red-Black Tree delete violations.
