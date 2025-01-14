@@ -647,42 +647,12 @@ def test_random_insert():
                                    price=order.price if price is None else price,
                                    status=status,
                                    filled_qty=order.filled_qty if filled_qty is None else filled_qty)
-        
-    random_orders = [
-        create_order(price=Decimal("4"), qty=Decimal("1"), side=Side.Buy),
-        create_order(price=Decimal("3"), qty=Decimal("7"), side=Side.Sell),
-        create_order(price=Decimal("7"), qty=Decimal("6"), side=Side.Sell),
-        create_order(price=Decimal("8"), qty=Decimal("5"), side=Side.Buy),
-        create_order(price=Decimal("4"), qty=Decimal("8"), side=Side.Buy),
-        create_order(price=Decimal("9"), qty=Decimal("7"), side=Side.Sell),
-        create_order(price=Decimal("8"), qty=Decimal("7"), side=Side.Buy),
-        create_order(price=Decimal("2"), qty=Decimal("2"), side=Side.Sell),
-        create_order(price=Decimal("6"), qty=Decimal("9"), side=Side.Sell),
-        create_order(price=Decimal("5"), qty=Decimal("5"), side=Side.Buy),
-        create_order(price=Decimal("6"), qty=Decimal("8"), side=Side.Sell),
-        create_order(price=Decimal("3"), qty=Decimal("6"), side=Side.Sell),
-        create_order(price=Decimal("3"), qty=Decimal("4"), side=Side.Sell),
-        create_order(price=Decimal("6"), qty=Decimal("8"), side=Side.Sell),
-        create_order(price=Decimal("5"), qty=Decimal("7"), side=Side.Sell),
-        create_order(price=Decimal("4"), qty=Decimal("7"), side=Side.Buy),
-        create_order(price=Decimal("3"), qty=Decimal("2"), side=Side.Buy),
-        create_order(price=Decimal("9"), qty=Decimal("10"), side=Side.Buy),
-        create_order(price=Decimal("10"), qty=Decimal("9"), side=Side.Sell),
-        create_order(price=Decimal("5"), qty=Decimal("2"), side=Side.Sell),
-        create_order(price=Decimal("6"), qty=Decimal("9"), side=Side.Sell),
-        create_order(price=Decimal("2"), qty=Decimal("7"), side=Side.Sell),
-        create_order(price=Decimal("1"), qty=Decimal("1"), side=Side.Buy),
-        create_order(price=Decimal("7"), qty=Decimal("1"), side=Side.Buy),
-        create_order(price=Decimal("4"), qty=Decimal("6"), side=Side.Buy),
-        create_order(price=Decimal("5"), qty=Decimal("4"), side=Side.Sell),
-        create_order(price=Decimal("3"), qty=Decimal("6"), side=Side.Buy),
-        create_order(price=Decimal("7"), qty=Decimal("7"), side=Side.Sell),
-        create_order(price=Decimal("9"), qty=Decimal("8"), side=Side.Sell),
-        create_order(price=Decimal("5"), qty=Decimal("5"), side=Side.Sell),
-        create_order(price=Decimal("10"), qty=Decimal("10"), side=Side.Buy),
-    ]
-    for i in range(1000):
+    order_count = 1000
+    order_update_counts_by_status: Dict[OrderStatus, int] = dict()
+    order_ids_partially_filled_at_some_points: Set[str] = set()
+    for i in range(order_count):
         next_order = create_random_order()
+        # print(f"create_order(Decimal('{next_order.price}'), Decimal('{next_order.qty}'), Side.{'Sell' if next_order.side == Side.Sell else 'Buy'}),")
         buy_orders = list(ob.in_order_buy_orders())
         sell_orders = list(ob.in_order_sell_orders())
         expected_updates: Set[ExpectedOrderUpdate] = set()
@@ -725,6 +695,10 @@ def test_random_insert():
         assert len(sell_orders) + sell_order_count_diff == len(post_sell_orders)
         for order_id, updates in subscriber.order_updates.items():
             for update in updates:
+                if update.status == OrderStatus.PartiallyFilled:
+                    order_ids_partially_filled_at_some_points.add(update.order_id)
+                count = order_update_counts_by_status.get(update.status, 0)
+                order_update_counts_by_status[update.status] = count + 1
                 expected_update = ExpectedOrderUpdate(cl_ord_id=update.cl_ord_id,
                                                       order_id=update.order_id,
                                                       qty=update.qty,
@@ -734,6 +708,14 @@ def test_random_insert():
                 expected_updates.remove(expected_update)
         assert len(expected_updates) == 0
         subscriber.order_updates.clear()
+        
+    buy_orders = list(ob.in_order_buy_orders())
+    sell_orders = list(ob.in_order_sell_orders())
+    assert order_update_counts_by_status[OrderStatus.Open] == order_count
+    assert order_update_counts_by_status[OrderStatus.Filled] == order_count - len(buy_orders) - len(sell_orders)
+    assert order_update_counts_by_status.get(OrderStatus.Canceled) is None
+    assert len(order_ids_partially_filled_at_some_points) <= order_count
+    assert len(order_ids_partially_filled_at_some_points) <= order_update_counts_by_status[OrderStatus.Filled]
                     
                 
     

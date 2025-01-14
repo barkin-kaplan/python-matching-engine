@@ -65,6 +65,8 @@ class Orderbook:
         self._publish_order_update(order)
         if order.side == Side.Buy:
             if self.best_ask is not None and order.price >= self.best_ask:
+                # do not delete levels inside for loop while iterating the collection in order to mitigate side effects
+                to_be_deleted_price_levels: List[Decimal] = []
                 # check active matches
                 for price, sell_orders in self._sell_levels.in_order():
                     if price <= order.price:
@@ -90,7 +92,9 @@ class Orderbook:
                             if bk_decimal.epsilon_equal(sell_order.open_qty, Decimal("0")):
                                 sell_orders.dequeue()
                                 if sell_orders.is_empty:
-                                    del self._sell_levels[sell_order.price]
+                                    to_be_deleted_price_levels.append(sell_order.price)
+                for price in to_be_deleted_price_levels:
+                    del self._sell_levels[price]
             if not bk_decimal.epsilon_equal(order.open_qty, Decimal("0")):
                 # place order into orderbook
                 orders = self._buy_levels[order.price]
@@ -101,6 +105,7 @@ class Orderbook:
                 
         else:
             if self.best_bid is not None and order.price <= self.best_bid:
+                to_be_deleted_price_levels: List[Decimal] = []
                 # check active matches
                 for price, buy_orders in self._buy_levels.reverse_order():
                     if price >= order.price:
@@ -126,7 +131,9 @@ class Orderbook:
                             if bk_decimal.epsilon_equal(buy_order.open_qty, Decimal("0")):
                                 buy_orders.dequeue()
                                 if buy_orders.is_empty:
-                                    del self._buy_levels[buy_order.price]
+                                    to_be_deleted_price_levels.append(buy_order.price)
+                for price in to_be_deleted_price_levels:
+                    del self._buy_levels[price]
             if not bk_decimal.epsilon_equal(order.open_qty, Decimal("0")):
                 # place order into orderbook
                 orders = self._sell_levels[order.price]
