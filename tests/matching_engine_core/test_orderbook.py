@@ -623,71 +623,76 @@ def test_single_replace_price_partially_filled_to_be_filled_sell_order():
     assert bo1.status == OrderStatus.PartiallyFilled
     assert bo2.status == OrderStatus.Filled
     
+def create_random_order() -> Order:
+        return Order(cl_ord_id=string_helper.generate_uuid(),
+                     order_id=string_helper.generate_uuid(),
+                     side=Side(random.randint(0, 1)),
+                     price=Decimal(random.randint(1, 10)),
+                     qty=Decimal(random.randint(1, 10)),
+                     symbol="test")
+        
+def create_expected_update(order: Order, status: OrderStatus, price: Optional[Decimal] = None, qty: Optional[Decimal] = None, filled_qty: Optional[Decimal] = None) -> ExpectedOrderUpdate:
+    return ExpectedOrderUpdate(cl_ord_id=order.cl_ord_id,
+                                order_id=order.order_id,
+                                qty=order.qty if qty is None else qty,
+                                price=order.price if price is None else price,
+                                status=status,
+                                filled_qty=order.filled_qty if filled_qty is None else filled_qty)
+    
+def create_expected_diffs_after_insert(next_order: Order, ob: Orderbook, is_replace: bool = False) -> Tuple[int, int, Set[ExpectedOrderUpdate]]:
+    buy_orders = list(ob.in_order_buy_orders())
+    sell_orders = list(ob.in_order_sell_orders())
+    expected_updates: Set[ExpectedOrderUpdate] = set()
+    buy_order_count_diff = 0
+    sell_order_count_diff = 0
+    expected_updates.add(create_expected_update(order=next_order, status=OrderStatus.Open))        
+    related_orders = buy_orders if next_order.side == Side.Sell else sell_orders
+    sell_order_count_diff += next_order.side == Side.Sell
+    buy_order_count_diff += next_order.side == Side.Buy
+    expected_fill_qty = Decimal("0")
+    for existing_order in related_orders:
+        if is_replace and existing_order.order_id == next_order.order_id:
+            continue
+        if bk_decimal.epsilon_zero(next_order.qty - expected_fill_qty):
+            break
+        if (bk_decimal.epsilon_gte(next_order.price, existing_order.price) and next_order.side == Side.Buy) or\
+            (bk_decimal.epsilon_gte(existing_order.price, next_order.price) and next_order.side == Side.Sell):
+            # a trade will occur                    
+            if bk_decimal.epsilon_lt(existing_order.open_qty, next_order.qty - expected_fill_qty):
+                trade_qty = existing_order.open_qty
+            else:
+                trade_qty = next_order.qty - expected_fill_qty
+            expected_fill_qty += trade_qty
+            if bk_decimal.epsilon_equal(trade_qty, existing_order.open_qty):
+                expected_updates.add(create_expected_update(order=existing_order, status=OrderStatus.Filled, filled_qty=existing_order.qty))
+                buy_order_count_diff -= existing_order.side == Side.Buy
+                sell_order_count_diff -= existing_order.side == Side.Sell
+            else:
+                expected_updates.add(create_expected_update(order=existing_order, status=OrderStatus.PartiallyFilled, filled_qty=existing_order.filled_qty + trade_qty))
+            
+            if bk_decimal.epsilon_equal(next_order.qty - expected_fill_qty, Decimal("0")):
+                expected_updates.add(create_expected_update(order=next_order, status=OrderStatus.Filled, filled_qty=next_order.qty))
+                buy_order_count_diff -= next_order.side == Side.Buy
+                sell_order_count_diff -= next_order.side == Side.Sell
+            else:
+                expected_updates.add(create_expected_update(order=next_order, status=OrderStatus.PartiallyFilled, filled_qty=expected_fill_qty))
+    
+    return buy_order_count_diff, sell_order_count_diff, expected_updates
+    
 def test_random_insert():
     ob = Orderbook(symbol="test")
     subscriber = MockTransSubscriber()
     ob.subscribe(subscriber)
-    price_min = 1
-    price_max = 10
-    qty_min = 1
-    qty_max = 10
-    
-    def create_random_order() -> Order:
-        return Order(cl_ord_id=string_helper.generate_uuid(),
-                     order_id=string_helper.generate_uuid(),
-                     side=Side(random.randint(0, 1)),
-                     price=Decimal(random.randint(price_min, price_max)),
-                     qty=Decimal(random.randint(qty_min, qty_max)),
-                     symbol="test")
-        
-    def create_expected_update(order: Order, status: OrderStatus, price: Optional[Decimal] = None, qty: Optional[Decimal] = None, filled_qty: Optional[Decimal] = None) -> ExpectedOrderUpdate:
-        return ExpectedOrderUpdate(cl_ord_id=order.cl_ord_id,
-                                   order_id=order.order_id,
-                                   qty=order.qty if qty is None else qty,
-                                   price=order.price if price is None else price,
-                                   status=status,
-                                   filled_qty=order.filled_qty if filled_qty is None else filled_qty)
     order_count = 1000
     order_update_counts_by_status: Dict[OrderStatus, int] = dict()
     order_ids_partially_filled_at_some_points: Set[str] = set()
+    
     for i in range(order_count):
         next_order = create_random_order()
-        # print(f"create_order(Decimal('{next_order.price}'), Decimal('{next_order.qty}'), Side.{'Sell' if next_order.side == Side.Sell else 'Buy'}),")
         buy_orders = list(ob.in_order_buy_orders())
         sell_orders = list(ob.in_order_sell_orders())
-        expected_updates: Set[ExpectedOrderUpdate] = set()
-        buy_order_count_diff = 0
-        sell_order_count_diff = 0
-        expected_updates.add(create_expected_update(order=next_order, status=OrderStatus.Open))        
-        related_orders = buy_orders if next_order.side == Side.Sell else sell_orders
-        sell_order_count_diff += next_order.side == Side.Sell
-        buy_order_count_diff += next_order.side == Side.Buy
-        expected_fill_qty = Decimal("0")
-        for existing_order in related_orders:
-            if bk_decimal.epsilon_zero(next_order.qty - expected_fill_qty):
-                break
-            if (bk_decimal.epsilon_gte(next_order.price, existing_order.price) and next_order.side == Side.Buy) or\
-                (bk_decimal.epsilon_gte(existing_order.price, next_order.price) and next_order.side == Side.Sell):
-                # a trade will occur                    
-                if bk_decimal.epsilon_lt(existing_order.open_qty, next_order.qty - expected_fill_qty):
-                    trade_qty = existing_order.open_qty
-                else:
-                    trade_qty = next_order.qty - expected_fill_qty
-                expected_fill_qty += trade_qty
-                if bk_decimal.epsilon_equal(trade_qty, existing_order.open_qty):
-                    expected_updates.add(create_expected_update(order=existing_order, status=OrderStatus.Filled, filled_qty=existing_order.qty))
-                    buy_order_count_diff -= existing_order.side == Side.Buy
-                    sell_order_count_diff -= existing_order.side == Side.Sell
-                else:
-                    expected_updates.add(create_expected_update(order=existing_order, status=OrderStatus.PartiallyFilled, filled_qty=existing_order.filled_qty + trade_qty))
-                
-                if bk_decimal.epsilon_equal(next_order.qty - expected_fill_qty, Decimal("0")):
-                    expected_updates.add(create_expected_update(order=next_order, status=OrderStatus.Filled, filled_qty=next_order.qty))
-                    buy_order_count_diff -= next_order.side == Side.Buy
-                    sell_order_count_diff -= next_order.side == Side.Sell
-                else:
-                    expected_updates.add(create_expected_update(order=next_order, status=OrderStatus.PartiallyFilled, filled_qty=expected_fill_qty))
-                        
+        print(f"create_order(Decimal('{next_order.price}'), Decimal('{next_order.qty}'), Side.{'Sell' if next_order.side == Side.Sell else 'Buy'}),")
+        buy_order_count_diff, sell_order_count_diff, expected_updates = create_expected_diffs_after_insert(next_order, ob)
         ob.submit_order(next_order)
         post_buy_orders = list(ob.in_order_buy_orders())
         post_sell_orders = list(ob.in_order_sell_orders())
@@ -717,5 +722,5 @@ def test_random_insert():
     assert len(order_ids_partially_filled_at_some_points) <= order_count
     assert len(order_ids_partially_filled_at_some_points) <= order_update_counts_by_status[OrderStatus.Filled]
                     
-                
+
     
