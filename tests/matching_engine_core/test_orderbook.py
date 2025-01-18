@@ -714,12 +714,13 @@ def create_expected_diffs_after_insert(next_order: Order, ob: Orderbook, is_repl
             else:
                 expected_updates.add(create_expected_update(order=existing_order, status=OrderStatus.PartiallyFilled, filled_qty=existing_order.filled_qty + trade_qty))
             
-            if bk_decimal.epsilon_equal(next_order.qty - expected_fill_qty, Decimal("0")):
+            total_filled_qty = expected_fill_qty + next_order.filled_qty
+            if bk_decimal.epsilon_equal(next_order.qty - total_filled_qty, Decimal("0")):
                 expected_updates.add(create_expected_update(order=next_order, status=OrderStatus.Filled, filled_qty=next_order.qty))
                 buy_order_count_diff -= next_order.side == Side.Buy
                 sell_order_count_diff -= next_order.side == Side.Sell
             else:
-                expected_updates.add(create_expected_update(order=next_order, status=OrderStatus.PartiallyFilled, filled_qty=expected_fill_qty))
+                expected_updates.add(create_expected_update(order=next_order, status=OrderStatus.PartiallyFilled, filled_qty=total_filled_qty))
         else:
             # if no trade occurs then it is not possible for this order to match with lower priority orders
             break
@@ -777,6 +778,84 @@ def test_random_insert():
     assert order_update_counts_by_status.get(OrderStatus.Canceled) is None
     assert len(order_ids_partially_filled_at_some_points) <= order_count
     assert len(order_ids_partially_filled_at_some_points) <= order_update_counts_by_status[OrderStatus.Filled]
+    
+    
+def test_replace_fill_all_buy_orders():
+    ob = Orderbook(symbol="test")
+    subscriber = MockTransSubscriber()
+    ob.subscribe(subscriber)
+    order_update_counts_by_status: Dict[OrderStatus, int] = dict()
+    order_ids_partially_filled_at_some_points: Set[str] = set()
+    ob.submit_order(Order(cl_ord_id=string_helper.generate_uuid(),
+                          order_id=string_helper.generate_uuid(),
+                          side=Side.Buy,
+                          qty=Decimal("5"),
+                          price=Decimal("3"),
+                          symbol="test"))
+    ob.submit_order(Order(cl_ord_id=string_helper.generate_uuid(),
+                          order_id=string_helper.generate_uuid(),
+                          side=Side.Buy,
+                          qty=Decimal("6"),
+                          price=Decimal("3"),
+                          symbol="test"))
+    
+    ob.submit_order(Order(cl_ord_id=string_helper.generate_uuid(),
+                          order_id=string_helper.generate_uuid(),
+                          side=Side.Sell,
+                          qty=Decimal("12"),
+                          price=Decimal("5"),
+                          symbol="test",
+                          filled_qty=Decimal("9")))
+    to_be_replaced = Order(cl_ord_id=string_helper.generate_uuid(),
+                          order_id=string_helper.generate_uuid(),
+                          side=Side.Sell,
+                          qty=Decimal("8"),
+                          price=Decimal("12"),
+                          symbol="test",
+                          filled_qty=Decimal("3"),
+                          status=OrderStatus.PartiallyFilled)
+    ob.submit_order(to_be_replaced)
+    subscriber.order_updates.clear()
+    buy_orders = list(ob.in_order_buy_orders())
+    sell_orders = list(ob.in_order_sell_orders())
+    # roll random to replace price first
+    replace_price = Decimal("1")
+    # roll random to replace qty first
+    replace_qty = Decimal("14")
+    expected_ob_operations = create_expected_diffs_after_insert(copy.deepcopy(to_be_replaced), ob, is_replace=True, replace_price=replace_price, replace_qty=replace_qty)
+    buy_order_count_diff, sell_order_count_diff, expected_updates = expected_ob_operations.buy_order_count_diff, expected_ob_operations.sell_order_count_diff, expected_ob_operations.expected_order_updates
+    expected_replace_rejects = expected_ob_operations.expected_replace_rejects        
+    
+    # print(f"create_order(Decimal('{next_order.price}'), Decimal('{next_order.qty}'), Side.{'Sell' if next_order.side == Side.Sell else 'Buy'}),")
+    orig_order = copy.deepcopy(to_be_replaced)
+    ob.replace_order(to_be_replaced, replace_price, replace_qty)
+    post_buy_orders = list(ob.in_order_buy_orders())
+    post_sell_orders = list(ob.in_order_sell_orders())
+    assert len(buy_orders) + buy_order_count_diff == len(post_buy_orders)
+    assert len(sell_orders) + sell_order_count_diff == len(post_sell_orders)
+    for order_id, updates in subscriber.order_updates.items():
+        for update in updates:
+            if update.status == OrderStatus.PartiallyFilled:
+                order_ids_partially_filled_at_some_points.add(update.order_id)
+            count = order_update_counts_by_status.get(update.status, 0)
+            order_update_counts_by_status[update.status] = count + 1
+            expected_update = ExpectedOrderUpdate(cl_ord_id=update.cl_ord_id,
+                                                    order_id=update.order_id,
+                                                    qty=update.qty,
+                                                    price=update.price,
+                                                    status=update.status,
+                                                    filled_qty=update.filled_qty)
+            expected_updates.remove(expected_update)
+            
+    for order_id, replace_rejects in subscriber.replace_rejects.items():
+        for replace_reject in replace_rejects:
+            expected_replace_rejects.remove(replace_reject)
+    assert len(expected_updates) == 0
+    assert len(expected_replace_rejects) == 0
+    assert order_update_counts_by_status.get(OrderStatus.Canceled) is None
+                    
+
+        
                     
 
 def test_random_replace():
@@ -811,9 +890,11 @@ def test_random_replace():
     assert len(buy_orders) == initial_buy_order_count
     assert len(sell_orders) == initial_sell_order_count
     
-    replace_count = 10
+    replace_count = 100
     subscriber.order_updates.clear()
     while replace_count > 0:
+        buy_orders = list(ob.in_order_buy_orders())
+        sell_orders = list(ob.in_order_sell_orders())
         buy_order_count_diff, sell_order_count_diff, expected_updates, expected_cancel_rejects, expected_replace_rejects = 0, 0, set(), [], []
         if random.randint(1, 10) == 5:
             # send replace to an unknown order
@@ -825,9 +906,13 @@ def test_random_replace():
             next_side = Side(random.randint(0, 1))
             if next_side == Side.Buy:
                 buy_orders = list(ob.in_order_buy_orders())
+                if len(buy_orders) == 0:
+                    continue
                 next_order = copy.deepcopy(random.choice(buy_orders))
             else:
                 sell_orders = list(ob.in_order_sell_orders())
+                if len(sell_orders) == 0:
+                    continue
                 next_order = copy.deepcopy(random.choice(sell_orders))
             
             # roll random to replace price first
@@ -876,7 +961,9 @@ def test_random_replace():
         
     buy_orders = list(ob.in_order_buy_orders())
     sell_orders = list(ob.in_order_sell_orders())
-    assert order_update_counts_by_status[OrderStatus.Filled] == initial_buy_order_count + initial_sell_order_count - len(buy_orders) - len(sell_orders)
+    order_update_counts_by_status.get(OrderStatus.Filled)
+    if order_update_counts_by_status is not None:
+        assert order_update_counts_by_status[OrderStatus.Filled] == initial_buy_order_count + initial_sell_order_count - len(buy_orders) - len(sell_orders)
     assert order_update_counts_by_status.get(OrderStatus.Canceled) is None
                     
 
