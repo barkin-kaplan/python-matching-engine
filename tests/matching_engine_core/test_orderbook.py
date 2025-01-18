@@ -27,7 +27,7 @@ class ExpectedOrderUpdate:
 
     def __eq__(self, other):
         if not isinstance(other, ExpectedOrderUpdate):
-            return NotImplemented
+            raise NotImplementedError(f"Can't compare objects of type {type(self).__name__} and {type(self).__name__}")
         return (self.cl_ord_id == other.cl_ord_id and
                 self.order_id == other.order_id and
                 self.qty == other.qty and
@@ -37,8 +37,18 @@ class ExpectedOrderUpdate:
 
 @dataclass
 class RejectModel:
-    order: Order
+    order_id: str
     reject_code: RejectCode
+    
+    def __hash__(self):
+        return hash((self.order_id, self.reject_code))
+    
+    def __eq__(self, other: 'RejectModel'):
+        if not isinstance(other, RejectModel):
+            raise NotImplementedError(f"Can't compare objects of type {type(self).__name__} and {type(self).__name__}")
+        
+        return self.order_id == other.order_id and self.reject_code == other.reject_code
+            
 
 class MockTransSubscriber(ITransactionSubscriber):
     def __init__(self):
@@ -65,7 +75,7 @@ class MockTransSubscriber(ITransactionSubscriber):
         if related_rejects is None:
             related_rejects = list()
             self.cancel_rejects[order_copy.order_id] = related_rejects
-        related_rejects.append(RejectModel(order_copy, reject_code))
+        related_rejects.append(RejectModel(order_copy.order_id, reject_code))
     
     def on_replace_reject(self, order: Order, reject_code: RejectCode):
         order_copy = copy.deepcopy(order)
@@ -73,7 +83,7 @@ class MockTransSubscriber(ITransactionSubscriber):
         if related_rejects is None:
             related_rejects = list()
             self.replace_rejects[order_copy.order_id] = related_rejects
-        related_rejects.append(RejectModel(order_copy, reject_code))
+        related_rejects.append(RejectModel(order_copy.order_id, reject_code))
     
 def create_order(price: Decimal, qty: Decimal, side: Side):
     order = Order(cl_ord_id=string_helper.generate_uuid(),
@@ -541,7 +551,7 @@ def test_single_replace_qty_partially_filled_reject():
     assert subscriber.order_updates[bo1.order_id][0].status == OrderStatus.Open
     assert subscriber.order_updates[bo1.order_id][1].status == OrderStatus.PartiallyFilled
     assert len(subscriber.replace_rejects) == 1
-    assert subscriber.replace_rejects[bo1.order_id][0].reject_code == RejectCode.NewQtyCantBeLessThanOpenQty
+    assert subscriber.replace_rejects[bo1.order_id][0].reject_code == RejectCode.NewQtyCantBeLessThanFilledQty
     buy_orders = list(ob.in_order_buy_orders())
     assert buy_orders[0].price == Decimal("0.000000003")
     assert buy_orders[0].qty == Decimal("0.000000004")
@@ -639,13 +649,47 @@ def create_expected_update(order: Order, status: OrderStatus, price: Optional[De
                                 status=status,
                                 filled_qty=order.filled_qty if filled_qty is None else filled_qty)
     
-def create_expected_diffs_after_insert(next_order: Order, ob: Orderbook, is_replace: bool = False) -> Tuple[int, int, Set[ExpectedOrderUpdate]]:
+
+@dataclass
+class ExpectedObOperations:
+    buy_order_count_diff: int
+    sell_order_count_diff: int
+    expected_order_updates: Set[ExpectedOrderUpdate]
+    expected_cancel_rejects: List[RejectModel]
+    expected_replace_rejects: List[RejectModel]
+    
+    
+def create_expected_diffs_after_insert(next_order: Order, ob: Orderbook, is_replace: bool = False, replace_price: Optional[Decimal] = None, replace_qty: Optional[Decimal] = None) -> ExpectedObOperations:
+    def create_replace_reject(reject_code: RejectCode):
+        return ExpectedObOperations(buy_order_count_diff=0,
+                                            sell_order_count_diff=0,
+                                            expected_order_updates=set(),
+                                            expected_cancel_rejects=[],
+                                            expected_replace_rejects=[RejectModel(next_order.order_id, reject_code)])
+    # create a new order object like it is new insert
+    if is_replace:
+        if (replace_price is None or bk_decimal.epsilon_equal(next_order.price, replace_price)) and\
+                (replace_qty is None or bk_decimal.epsilon_equal(replace_qty,next_order.qty)):
+            return create_replace_reject(RejectCode.PriceOrQtyMustBeChanged)
+        if replace_qty is not None and bk_decimal.epsilon_lte(replace_qty, next_order.filled_qty):
+            return create_replace_reject(RejectCode.NewQtyCantBeLessThanFilledQty)
+                
+        next_order = copy.deepcopy(next_order)
+        if replace_price is not None:
+            next_order.price = replace_price
+        if replace_qty is not None:
+            next_order.qty = replace_qty
     buy_orders = list(ob.in_order_buy_orders())
     sell_orders = list(ob.in_order_sell_orders())
     expected_updates: Set[ExpectedOrderUpdate] = set()
     buy_order_count_diff = 0
     sell_order_count_diff = 0
-    expected_updates.add(create_expected_update(order=next_order, status=OrderStatus.Open))        
+    if is_replace:
+        expected_updates.add(create_expected_update(order=next_order, status=next_order.status))  
+        buy_order_count_diff -= next_order.side == Side.Buy 
+        sell_order_count_diff -= next_order.side == Side.Sell
+    else:
+        expected_updates.add(create_expected_update(order=next_order, status=OrderStatus.Open))        
     related_orders = buy_orders if next_order.side == Side.Sell else sell_orders
     sell_order_count_diff += next_order.side == Side.Sell
     buy_order_count_diff += next_order.side == Side.Buy
@@ -676,8 +720,19 @@ def create_expected_diffs_after_insert(next_order: Order, ob: Orderbook, is_repl
                 sell_order_count_diff -= next_order.side == Side.Sell
             else:
                 expected_updates.add(create_expected_update(order=next_order, status=OrderStatus.PartiallyFilled, filled_qty=expected_fill_qty))
+        else:
+            # if no trade occurs then it is not possible for this order to match with lower priority orders
+            break
     
-    return buy_order_count_diff, sell_order_count_diff, expected_updates
+    ops = ExpectedObOperations(
+        buy_order_count_diff=buy_order_count_diff,
+        sell_order_count_diff=sell_order_count_diff,
+        expected_order_updates=expected_updates,
+        expected_cancel_rejects=[],
+        expected_replace_rejects=[]        
+    )
+    
+    return ops
     
 def test_random_insert():
     ob = Orderbook(symbol="test")
@@ -692,7 +747,8 @@ def test_random_insert():
         buy_orders = list(ob.in_order_buy_orders())
         sell_orders = list(ob.in_order_sell_orders())
         print(f"create_order(Decimal('{next_order.price}'), Decimal('{next_order.qty}'), Side.{'Sell' if next_order.side == Side.Sell else 'Buy'}),")
-        buy_order_count_diff, sell_order_count_diff, expected_updates = create_expected_diffs_after_insert(next_order, ob)
+        expected_ob_operations = create_expected_diffs_after_insert(next_order, ob)
+        buy_order_count_diff, sell_order_count_diff, expected_updates = expected_ob_operations.buy_order_count_diff, expected_ob_operations.sell_order_count_diff, expected_ob_operations.expected_order_updates
         ob.submit_order(next_order)
         post_buy_orders = list(ob.in_order_buy_orders())
         post_sell_orders = list(ob.in_order_sell_orders())
@@ -723,4 +779,105 @@ def test_random_insert():
     assert len(order_ids_partially_filled_at_some_points) <= order_update_counts_by_status[OrderStatus.Filled]
                     
 
+def test_random_replace():
+    ob = Orderbook(symbol="test")
+    subscriber = MockTransSubscriber()
+    ob.subscribe(subscriber)
+    order_update_counts_by_status: Dict[OrderStatus, int] = dict()
+    order_ids_partially_filled_at_some_points: Set[str] = set()
+    initial_buy_order_count = 0
+    min_order_count_at_level = 1
+    max_order_count_at_level = 1
+    # construct orderbook
+    for price in range(1, 11):
+        order_count_at_level = random.randint(min_order_count_at_level, max_order_count_at_level)
+        initial_buy_order_count += order_count_at_level
+        for i in range(order_count_at_level):
+            qty = random.randint(1, 10)
+            order = create_order(Decimal(price), Decimal(qty), Side.Buy)
+            ob.submit_order(order)
+            
+    initial_sell_order_count = 0
+    for price in range(11, 21):
+        order_count_at_level = random.randint(min_order_count_at_level, max_order_count_at_level)
+        initial_sell_order_count += order_count_at_level
+        for i in range(order_count_at_level):
+            qty = random.randint(1, 10)
+            order = create_order(Decimal(price), Decimal(qty), Side.Sell)
+            ob.submit_order(order) 
+           
+    buy_orders = list(ob.in_order_buy_orders())
+    sell_orders = list(ob.in_order_sell_orders())
+    assert len(buy_orders) == initial_buy_order_count
+    assert len(sell_orders) == initial_sell_order_count
     
+    replace_count = 10
+    subscriber.order_updates.clear()
+    while replace_count > 0:
+        buy_order_count_diff, sell_order_count_diff, expected_updates, expected_cancel_rejects, expected_replace_rejects = 0, 0, set(), [], []
+        if random.randint(1, 10) == 5:
+            # send replace to an unknown order
+            next_order = create_order(Decimal("4"), Decimal("4"), Side.Buy)
+            replace_price = Decimal("5")
+            replace_qty = Decimal("6")
+            expected_replace_rejects.append(RejectModel(next_order.order_id, RejectCode.OrderDoesNotExist))
+        else:
+            next_side = Side(random.randint(0, 1))
+            if next_side == Side.Buy:
+                buy_orders = list(ob.in_order_buy_orders())
+                next_order = copy.deepcopy(random.choice(buy_orders))
+            else:
+                sell_orders = list(ob.in_order_sell_orders())
+                next_order = copy.deepcopy(random.choice(sell_orders))
+            
+            # roll random to replace price first
+            replace_price = Decimal(random.randint(1, 21)) if random.randint(1, 2) == 1 else None
+            # roll random to replace qty first
+            replace_qty = Decimal(random.randint(1, 21)) if random.randint(1, 2) == 1 else None
+            expected_ob_operations = create_expected_diffs_after_insert(copy.deepcopy(next_order), ob, is_replace=True, replace_price=replace_price, replace_qty=replace_qty)
+            buy_order_count_diff, sell_order_count_diff, expected_updates = expected_ob_operations.buy_order_count_diff, expected_ob_operations.sell_order_count_diff, expected_ob_operations.expected_order_updates
+            expected_replace_rejects = expected_ob_operations.expected_replace_rejects        
+            
+        # print(f"create_order(Decimal('{next_order.price}'), Decimal('{next_order.qty}'), Side.{'Sell' if next_order.side == Side.Sell else 'Buy'}),")
+        orig_order = copy.deepcopy(next_order)
+        ob.replace_order(next_order, replace_price, replace_qty)
+        post_buy_orders = list(ob.in_order_buy_orders())
+        post_sell_orders = list(ob.in_order_sell_orders())
+        try:
+            assert len(buy_orders) + buy_order_count_diff == len(post_buy_orders)
+        except:
+            a = 5
+        try:
+            assert len(sell_orders) + sell_order_count_diff == len(post_sell_orders)
+        except:
+            a = 5
+        for order_id, updates in subscriber.order_updates.items():
+            for update in updates:
+                if update.status == OrderStatus.PartiallyFilled:
+                    order_ids_partially_filled_at_some_points.add(update.order_id)
+                count = order_update_counts_by_status.get(update.status, 0)
+                order_update_counts_by_status[update.status] = count + 1
+                expected_update = ExpectedOrderUpdate(cl_ord_id=update.cl_ord_id,
+                                                      order_id=update.order_id,
+                                                      qty=update.qty,
+                                                      price=update.price,
+                                                      status=update.status,
+                                                      filled_qty=update.filled_qty)
+                expected_updates.remove(expected_update)
+                
+        for order_id, replace_rejects in subscriber.replace_rejects.items():
+            for replace_reject in replace_rejects:
+                expected_replace_rejects.remove(replace_reject)
+        assert len(expected_updates) == 0
+        assert len(expected_replace_rejects) == 0
+        subscriber.order_updates.clear()
+        subscriber.replace_rejects.clear()
+        replace_count -= 1
+        
+    buy_orders = list(ob.in_order_buy_orders())
+    sell_orders = list(ob.in_order_sell_orders())
+    assert order_update_counts_by_status[OrderStatus.Filled] == initial_buy_order_count + initial_sell_order_count - len(buy_orders) - len(sell_orders)
+    assert order_update_counts_by_status.get(OrderStatus.Canceled) is None
+                    
+
+        

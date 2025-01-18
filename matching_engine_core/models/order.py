@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from decimal import Decimal
 
-from helper import bk_decimal
+from helper import bk_decimal, bk_time
 from matching_engine_core.models.order_status import OrderStatus
 from matching_engine_core.models.side import Side
 
@@ -16,6 +16,7 @@ class Order:
     symbol: str
     status: OrderStatus = OrderStatus.PendingNew
     filled_qty: Decimal = Decimal("0")
+    timestamp: int = field(default_factory=bk_time.get_current_time_millis)
     
     @property
     def open_qty(self) -> Decimal:

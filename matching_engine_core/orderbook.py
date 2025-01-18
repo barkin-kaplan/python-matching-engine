@@ -69,6 +69,8 @@ class Orderbook:
                 to_be_deleted_price_levels: List[Decimal] = []
                 # check active matches
                 for price, sell_orders in self._sell_levels.in_order():
+                    if order.status == OrderStatus.Filled:
+                        break
                     if price <= order.price:
                         while not sell_orders.is_empty and not bk_decimal.epsilon_equal(order.open_qty, Decimal("0")):
                             sell_order = cast(Order, sell_orders.peek())
@@ -108,6 +110,8 @@ class Orderbook:
                 to_be_deleted_price_levels: List[Decimal] = []
                 # check active matches
                 for price, buy_orders in self._buy_levels.reverse_order():
+                    if order.status == OrderStatus.Filled:
+                        break
                     if price >= order.price:
                         while not buy_orders.is_empty and not bk_decimal.epsilon_equal(order.open_qty, Decimal("0")):
                             buy_order = cast(Order, buy_orders.peek())
@@ -167,19 +171,21 @@ class Orderbook:
             order.status = OrderStatus.Canceled
             self._publish_order_update(order)
             
-    def replace_order(self, order: Order, new_price: Decimal, new_qty: Decimal):
-        if bk_decimal.epsilon_equal(order.price, new_price) and bk_decimal.epsilon_equal(order.qty, new_qty):
+    def replace_order(self, order: Order, new_price: Optional[Decimal], new_qty: Optional[Decimal]):
+        if (new_price is None or bk_decimal.epsilon_equal(order.price, new_price)) and (new_qty is None or bk_decimal.epsilon_equal(order.qty, new_qty)):
             self._publish_replace_reject(order, RejectCode.PriceOrQtyMustBeChanged)
             return 
-        if bk_decimal.epsilon_lt(new_qty, order.filled_qty):
-            self._publish_replace_reject(order, RejectCode.NewQtyCantBeLessThanOpenQty)
+        if new_qty is not None and bk_decimal.epsilon_lt(new_qty, order.filled_qty):
+            self._publish_replace_reject(order, RejectCode.NewQtyCantBeLessThanFilledQty)
             return
         result = self._cancel_without_publish(order)
         if isinstance(result, RejectCode):
             self._publish_replace_reject(order, result)
         else:
-            order.price = new_price
-            order.qty = new_qty
+            if new_price is not None:
+                order.price = new_price
+            if new_qty is not None:
+                order.qty = new_qty
             self.submit_order(order)
             
         
