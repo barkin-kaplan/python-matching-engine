@@ -175,8 +175,8 @@ class Orderbook:
         if (new_price is None or bk_decimal.epsilon_equal(order.price, new_price)) and (new_qty is None or bk_decimal.epsilon_equal(order.qty, new_qty)):
             self._publish_replace_reject(order, RejectCode.PriceOrQtyMustBeChanged)
             return 
-        if new_qty is not None and bk_decimal.epsilon_lt(new_qty, order.filled_qty):
-            self._publish_replace_reject(order, RejectCode.NewQtyCantBeLessThanFilledQty)
+        if new_qty is not None and bk_decimal.epsilon_lte(new_qty, order.filled_qty):
+            self._publish_replace_reject(order, RejectCode.NewQtyCantBeLessThanOrEqualToFilledQty)
             return
         result = self._cancel_without_publish(order)
         if isinstance(result, RejectCode):
