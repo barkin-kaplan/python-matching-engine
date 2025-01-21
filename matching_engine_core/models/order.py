@@ -5,6 +5,7 @@ from helper import bk_decimal, bk_time
 from matching_engine_core.models.order_status import OrderStatus
 from matching_engine_core.models.side import Side
 
+_OPEN_STATES = {OrderStatus.PendingNew, OrderStatus.Open, OrderStatus.PartiallyFilled}
 
 @dataclass
 class Order:
@@ -21,6 +22,10 @@ class Order:
     @property
     def open_qty(self) -> Decimal:
         return self.qty - self.filled_qty
+    
+    @property
+    def is_open(self) -> bool:
+        return self.status in _OPEN_STATES
         
     def update_state_after_transaction(self):
         if bk_decimal.epsilon_equal(self.filled_qty, self.qty):
