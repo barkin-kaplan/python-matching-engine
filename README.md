@@ -30,6 +30,7 @@ This matching engine is designed for efficient order matching in financial marke
    ```bash
    path/to/your/pyton -m venv .venv
 3. Activate virtual environment(Skip if you skipped step 2)
+
    Windows
    ```bash
    .venv\Scripts\activate
@@ -38,13 +39,13 @@ This matching engine is designed for efficient order matching in financial marke
    ```bash
    source .venv/bin/activate
    
-4. Install python dependencies
+5. Install python dependencies
    ```bash
    pip install -r requirements.txt
-5. Run orderbookgui.py for UI demo
+6. Run orderbookgui.py for UI demo
    ```bash
    python orderbook_gui.py
-6. Run performance tests
+7. Run performance tests
    ```bash
    python orderbook_perf_test.py
    
