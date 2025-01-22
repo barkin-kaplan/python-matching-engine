@@ -58,11 +58,10 @@ Generate coverage reports
    3. line and branch coverage
       ```bash
         pytest --cov --cov-branch --cov-report=html
-## Performance Test Results
+# Performance Metrics
 Firstly running times will be higher than actual repoted execution times because for each test a fresh orderbook is populated beforehand and that takes extra time.
 Here are the performance result on my machine. I'm running on a AMD Ryzen 9 7900X3D 12-Core Processor. 
 In short using red black tree gives advantage of increasing complexity by O(logN) when number of price levels increase while order count is constant. Using doubly linked list with has map has constant time for insertion and deletion therefore complexity increases linearly when order count increases for same price level count.
-# Performance Metrics
 
 ## Insert Operations
 - **Small (count: 1000)**
