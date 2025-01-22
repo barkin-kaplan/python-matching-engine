@@ -35,16 +35,10 @@ The insertions are on average done in sub millisecond (i.e. in the orders of mic
    python -m venv .venv
    ```
    If this does not work then you should manually write your python path.
-   If you are unsure about where to find your python installation run the following command. I'm using Windows
-   ```bash
-   where python
-   ```
-   Sample output:
+   If you are unsure about where to find your python installation run the following command. I'm using Windows and in my case my python installation is under
+   
    C:\Users\<your_username>\AppData\Local\Programs\Python\Python313\python.exe
-   C:\Users\<your_username>\AppData\Local\Programs\Python\Python311\python.exe
-   C:\Users\<your_username>\AppData\Local\Microsoft\WindowsApps\python.exe
-
-   then use one the version suitable. In my case it is
+   
    ```bash
    C:\Users\<your_username>\AppData\Local\Programs\Python\Python313\python.exe -m venv .venv
    
