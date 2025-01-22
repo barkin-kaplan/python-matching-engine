@@ -58,6 +58,8 @@ The insertions are on average done in sub millisecond (i.e. in the orders of mic
 6. Run orderbookgui.py for UI demo
    ```bash
    python orderbook_gui.py
+   ```
+   You can find detailed information about GUI below this page.
 7. Run performance tests
    ```bash
    python orderbook_perf_test.py
