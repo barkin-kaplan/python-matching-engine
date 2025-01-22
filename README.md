@@ -203,7 +203,7 @@ You can change an order's price and quantity using this form. If you want to cha
 
 ![Replace Form](images/replace_form_highlight.jpg)
 
-### Cancel Form
+### Cancel Button
 You can cancel the selected order with this button.
 
 ![Cancel Button](images/cancel_order_highlight.jpg)
