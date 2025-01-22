@@ -27,11 +27,27 @@ The insertions are on average done in sub millisecond (i.e. in the orders of mic
    ```bash
    git clone https://github.com/barkin-kaplan/python-matching-engine/
    ```
+2. Navigate into project folder
    ```bash
    cd python-matching-engine
-2. Create a virtual environment(Optional)
+3. Create a virtual environment(Optional)
    ```bash
-   path/to/your/pyton -m venv .venv
+   python -m venv .venv
+   ```
+   If this does not work then you should manually write your python path.
+   If you are unsure about where to find your python installation run the following command. I'm using Windows
+   ```bash
+   where python
+   ```
+   Sample output:
+   C:\Users\<your_username>\AppData\Local\Programs\Python\Python313\python.exe
+   C:\Users\<your_username>\AppData\Local\Programs\Python\Python311\python.exe
+   C:\Users\<your_username>\AppData\Local\Microsoft\WindowsApps\python.exe
+
+   then use one the version suitable. In my case it is
+   ```bash
+   C:\Users\<your_username>\AppData\Local\Programs\Python\Python313\python.exe -m venv .venv
+   
 3. Activate virtual environment(Skip if you skipped step 2)
 
    Windows
