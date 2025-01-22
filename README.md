@@ -23,6 +23,8 @@ This matching engine is designed for efficient order matching in financial marke
 1. Clone the repository:
    ```bash
    git clone https://github.com/barkin-kaplan/python-matching-engine/
+   ```
+   ```bash
    cd matching-engine
 2. Create a virtual environment(Optional)
    ```bash
