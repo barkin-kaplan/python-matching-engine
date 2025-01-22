@@ -42,8 +42,8 @@ The insertions are on average done in sub millisecond (i.e. in the orders of mic
    ```bash
    C:\Users\<your_username>\AppData\Local\Programs\Python\Python313\python.exe -m venv .venv
    
-3. Activate virtual environment(Skip if you skipped step 2)
-
+4. Activate virtual environment(Skip if you skipped step 2)
+   This activates the isolated virtual environment so that python dependency version do not collide with your other python projects
    Windows
    ```bash
    .venv\Scripts\activate
