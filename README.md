@@ -43,7 +43,7 @@ The insertions are on average done in sub millisecond (i.e. in the orders of mic
    C:\Users\<your_username>\AppData\Local\Programs\Python\Python313\python.exe -m venv .venv
    
 4. Activate virtual environment(Skip if you skipped step 2)
-   This activates the isolated virtual environment so that python dependency version do not collide with your other python projects
+   This activates the isolated virtual environment so that python dependency version do not collide with your other python projects.
    Windows
    ```bash
    .venv\Scripts\activate
@@ -77,7 +77,7 @@ Generate coverage reports
       ```bash
         pytest --cov --cov-branch --cov-report=html
 # Performance Metrics
-Firstly running times will be higher than actual repoted execution times because for each test a fresh orderbook is populated beforehand and that takes extra time.
+Firstly running times will be higher than actual reported execution times because for each test a fresh orderbook is populated beforehand and that takes extra time.
 Here are the performance result on my machine. I'm running on a AMD Ryzen 9 7900X3D 12-Core Processor. 
 
 
