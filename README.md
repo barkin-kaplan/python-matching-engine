@@ -64,11 +64,12 @@ Generate coverage reports
 # Performance Metrics
 Firstly running times will be higher than actual repoted execution times because for each test a fresh orderbook is populated beforehand and that takes extra time.
 Here are the performance result on my machine. I'm running on a AMD Ryzen 9 7900X3D 12-Core Processor. 
-In short using red black tree gives advantage of increasing complexity by O(logN) when number of price levels increase while order count is constant. Using doubly linked list with has map has constant time for insertion and deletion therefore complexity increases linearly when order count increases for same price level count. 
 
-Notice how execution times remain similar when price range is bigger than actual order count, this is naturally normal because price levels are created with order insertions. So the count of price levels are bounded by the number of inserted orders even if the orders' prices are rolled from a bigger range.
 
 ## Insert Operations
+Using red black tree gives advantage of increasing complexity by O(logN) when number of price levels increase while order count is constant. Using doubly linked list with has map has constant time for insertion and deletion therefore complexity increases linearly when order count increases for same price level count. 
+
+Notice how execution times remain similar when price range is bigger than actual order count, this is naturally normal because price levels are created with order insertions. So the count of price levels are bounded by the number of inserted orders even if the orders' prices are rolled from a bigger range.
 - **Small (count: 1000)**
   - Small price range ([1, 1000]): `0.009226 seconds`
   - Medium price range ([1, 10000]): `0.008031 seconds`
@@ -83,6 +84,7 @@ Notice how execution times remain similar when price range is bigger than actual
   - Large price range ([1, 100000]): `12.09 seconds`
 
 ## Replace Operations
+The replace operations are generated randomly beforehand and we need improvements over measuring real world cases.
 - **Small (count: 1000)**
   - For small order count (1000):
     - Small price range ([1, 1000]): `0.005272 seconds`
@@ -124,6 +126,7 @@ Notice how execution times remain similar when price range is bigger than actual
     - Large price range ([1, 100000]): `27.642 seconds`
 
 ## Cancel Operations
+The cancel operations are generated randomly beforehand and we need improvements over measuring real world cases.
 - **Small (count: 1000)**
   - For small order count (1000):
     - Small price range ([1, 1000]): `0.0009525 seconds`
