@@ -60,69 +60,104 @@ Generate coverage reports
         pytest --cov --cov-branch --cov-report=html
 ## Performance Test Results
 Firstly running times will be higher than actual repoted execution times because for each test a fresh orderbook is populated beforehand and that takes extra time.
-Here are the performance result on my machine. I'm running on a AMD Ryzen 9 7900X3D 12-Core Processor
-Insert small (count: 1000) on small price range([1,1000]) took 0.009636402130126953 seconds
-Insert small (count: 1000) on medium price range([1,10000]) took 0.00838470458984375 seconds
-Insert small (count: 1000) on large price range([1,100000]) took 0.009348392486572266 seconds
-Insert medium (count: 10000) on small price range([1,1000]) took 0.11107563972473145 seconds
-Insert medium (count: 10000) on medium price range([1,10000]) took 0.16815590858459473 seconds
-Insert medium (count: 10000) on large price range([1,100000]) took 0.19087958335876465 seconds
-Insert large (count: 100000) on small price range([1,1000]) took 1.2290959358215332 seconds
-Insert large (count: 100000) on medium price range([1,10000]) took 4.860355377197266 seconds
-Insert large (count: 100000) on large price range([1,100000]) took 11.840525150299072 seconds
-Replace small(count: 1000) for small order count(1000), for small price range (([1,1000])) took 0.005799293518066406 seconds
-Replace small(count: 1000) for small order count(1000), for medium price range (([1,10000])) took 0.006266117095947266 seconds
-Replace small(count: 1000) for small order count(1000), for large price range (([1,100000])) took 0.0076313018798828125 seconds
-Replace small(count: 1000) for medium order count(10000), for small price range (([1,1000])) took 0.00503993034362793 seconds
-Replace small(count: 1000) for medium order count(10000), for medium price range (([1,10000])) took 0.0064830780029296875 seconds
-Replace small(count: 1000) for medium order count(10000), for large price range (([1,100000])) took 0.008660554885864258 seconds
-Replace small(count: 1000) for large order count(100000), for small price range (([1,1000])) took 0.005796909332275391 seconds
-Replace small(count: 1000) for large order count(100000), for medium price range (([1,10000])) took 0.006762027740478516 seconds
-Replace small(count: 1000) for large order count(100000), for large price range (([1,100000])) took 0.007879972457885742 seconds
-Replace medium(count: 10000) for small order count(1000), for small price range (([1,1000])) took 0.030429840087890625 seconds
-Replace medium(count: 10000) for small order count(1000), for medium price range (([1,10000])) took 0.04793953895568848 seconds
-Replace medium(count: 10000) for small order count(1000), for large price range (([1,100000])) took 0.04391288757324219 seconds
-Replace medium(count: 10000) for medium order count(10000), for small price range (([1,1000])) took 0.045610904693603516 seconds
-Replace medium(count: 10000) for medium order count(10000), for medium price range (([1,10000])) took 0.26291775703430176 seconds
-Replace medium(count: 10000) for medium order count(10000), for large price range (([1,100000])) took 0.40394067764282227 seconds
-Replace medium(count: 10000) for large order count(100000), for small price range (([1,1000])) took 0.05797266960144043 seconds
-Replace medium(count: 10000) for large order count(100000), for medium price range (([1,10000])) took 0.06719279289245605 seconds
-Replace medium(count: 10000) for large order count(100000), for large price range (([1,100000])) took 0.3151721954345703 seconds
-Replace large(count: 100000) for small order count(1000), for small price range (([1,1000])) took 0.10948491096496582 seconds
-Replace large(count: 100000) for small order count(1000), for medium price range (([1,10000])) took 0.12932062149047852 seconds
-Replace large(count: 100000) for small order count(1000), for large price range (([1,100000])) took 0.14337611198425293 seconds
-Replace large(count: 100000) for medium order count(10000), for small price range (([1,1000])) took 0.2379775047302246 seconds
-Replace large(count: 100000) for medium order count(10000), for medium price range (([1,10000])) took 1.489325761795044 seconds
-Replace large(count: 100000) for medium order count(10000), for large price range (([1,100000])) took 3.119692802429199 seconds
-Replace large(count: 100000) for large order count(100000), for small price range (([1,1000])) took 0.5060892105102539 seconds
-Replace large(count: 100000) for large order count(100000), for medium price range (([1,10000])) took 0.9982717037200928 seconds
-Replace large(count: 100000) for large order count(100000), for large price range (([1,100000])) took 28.259878635406494 seconds
-Cancel small(count: 1000) for small order count(1000), for small price range (([1,1000])) took 0.001171112060546875 seconds
-Cancel small(count: 1000) for small order count(1000), for medium price range (([1,10000])) took 0.0010793209075927734 seconds
-Cancel small(count: 1000) for small order count(1000), for large price range (([1,100000])) took 0.0010521411895751953 seconds
-Cancel small(count: 1000) for medium order count(10000), for small price range (([1,1000])) took 0.0011665821075439453 seconds
-Cancel small(count: 1000) for medium order count(10000), for medium price range (([1,10000])) took 0.0017273426055908203 seconds
-Cancel small(count: 1000) for medium order count(10000), for large price range (([1,100000])) took 0.0014235973358154297 seconds
-Cancel small(count: 1000) for large order count(100000), for small price range (([1,1000])) took 0.0018687248229980469 seconds
-Cancel small(count: 1000) for large order count(100000), for medium price range (([1,10000])) took 0.0030813217163085938 seconds
-Cancel small(count: 1000) for large order count(100000), for large price range (([1,100000])) took 0.0030138492584228516 seconds
-Cancel medium(count: 10000) for small order count(1000), for small price range (([1,1000])) took 0.009098052978515625 seconds
-Cancel medium(count: 10000) for small order count(1000), for medium price range (([1,10000])) took 0.009633779525756836 seconds
-Cancel medium(count: 10000) for small order count(1000), for large price range (([1,100000])) took 0.009610891342163086 seconds
-Cancel medium(count: 10000) for medium order count(10000), for small price range (([1,1000])) took 0.01174473762512207 seconds
-Cancel medium(count: 10000) for medium order count(10000), for medium price range (([1,10000])) took 0.013224601745605469 seconds
-Cancel medium(count: 10000) for medium order count(10000), for large price range (([1,100000])) took 0.01389455795288086 seconds
-Cancel medium(count: 10000) for large order count(100000), for small price range (([1,1000])) took 0.016527891159057617 seconds
-Cancel medium(count: 10000) for large order count(100000), for medium price range (([1,10000])) took 0.020753860473632812 seconds
-Cancel medium(count: 10000) for large order count(100000), for large price range (([1,100000])) took 0.02716851234436035 seconds
-Cancel large(count: 100000) for small order count(1000), for small price range (([1,1000])) took 0.08701229095458984 seconds
-Cancel large(count: 100000) for small order count(1000), for medium price range (([1,10000])) took 0.09422993659973145 seconds
-Cancel large(count: 100000) for small order count(1000), for large price range (([1,100000])) took 0.09547138214111328 seconds
-Cancel large(count: 100000) for medium order count(10000), for small price range (([1,1000])) took 0.10396933555603027 seconds
-Cancel large(count: 100000) for medium order count(10000), for medium price range (([1,10000])) took 0.14526009559631348 seconds
-Cancel large(count: 100000) for medium order count(10000), for large price range (([1,100000])) took 0.1372520923614502 seconds
-Cancel large(count: 100000) for large order count(100000), for small price range (([1,1000])) took 0.14864063262939453 seconds
-Cancel large(count: 100000) for large order count(100000), for medium price range (([1,10000])) took 0.19442105293273926 seconds
-Cancel large(count: 100000) for large order count(100000), for large price range (([1,100000])) took 0.24105191230773926 seconds
+Here are the performance result on my machine. I'm running on a AMD Ryzen 9 7900X3D 12-Core Processor. 
+In short using red black tree gives advantage of increasing complexity by O(logN) when number of price levels increase while order count is constant. Using doubly linked list with has map has constant time for insertion and deletion therefore complexity increases linearly when order count increases for same price level count.
+# Performance Metrics
+
+## Insert Operations
+- **Small (count: 1000)**
+  - Small price range ([1, 1000]): `0.009226 seconds`
+  - Medium price range ([1, 10000]): `0.008031 seconds`
+  - Large price range ([1, 100000]): `0.008414 seconds`
+- **Medium (count: 10000)**
+  - Small price range ([1, 1000]): `0.109 seconds`
+  - Medium price range ([1, 10000]): `0.1779 seconds`
+  - Large price range ([1, 100000]): `0.1863 seconds`
+- **Large (count: 100000)**
+  - Small price range ([1, 1000]): `1.2399 seconds`
+  - Medium price range ([1, 10000]): `4.6751 seconds`
+  - Large price range ([1, 100000]): `12.09 seconds`
+
+## Replace Operations
+- **Small (count: 1000)**
+  - For small order count (1000):
+    - Small price range ([1, 1000]): `0.005272 seconds`
+    - Medium price range ([1, 10000]): `0.007436 seconds`
+    - Large price range ([1, 100000]): `0.008165 seconds`
+  - For medium order count (10000):
+    - Small price range ([1, 1000]): `0.005253 seconds`
+    - Medium price range ([1, 10000]): `0.00765 seconds`
+    - Large price range ([1, 100000]): `0.01056 seconds`
+  - For large order count (100000):
+    - Small price range ([1, 1000]): `0.005989 seconds`
+    - Medium price range ([1, 10000]): `0.007017 seconds`
+    - Large price range ([1, 100000]): `0.008223 seconds`
+- **Medium (count: 10000)**
+  - For small order count (1000):
+    - Small price range ([1, 1000]): `0.03234 seconds`
+    - Medium price range ([1, 10000]): `0.04268 seconds`
+    - Large price range ([1, 100000]): `0.05129 seconds`
+  - For medium order count (10000):
+    - Small price range ([1, 1000]): `0.04883 seconds`
+    - Medium price range ([1, 10000]): `0.2235 seconds`
+    - Large price range ([1, 100000]): `0.3828 seconds`
+  - For large order count (100000):
+    - Small price range ([1, 1000]): `0.05782 seconds`
+    - Medium price range ([1, 10000]): `0.069 seconds`
+    - Large price range ([1, 100000]): `0.3082 seconds`
+- **Large (count: 100000)**
+  - For small order count (1000):
+    - Small price range ([1, 1000]): `0.1047 seconds`
+    - Medium price range ([1, 10000]): `0.1271 seconds`
+    - Large price range ([1, 100000]): `0.1359 seconds`
+  - For medium order count (10000):
+    - Small price range ([1, 1000]): `0.2602 seconds`
+    - Medium price range ([1, 10000]): `1.8403 seconds`
+    - Large price range ([1, 100000]): `2.9579 seconds`
+  - For large order count (100000):
+    - Small price range ([1, 1000]): `0.5136 seconds`
+    - Medium price range ([1, 10000]): `0.9424 seconds`
+    - Large price range ([1, 100000]): `27.642 seconds`
+
+## Cancel Operations
+- **Small (count: 1000)**
+  - For small order count (1000):
+    - Small price range ([1, 1000]): `0.0009525 seconds`
+    - Medium price range ([1, 10000]): `0.001044 seconds`
+    - Large price range ([1, 100000]): `0.001013 seconds`
+  - For medium order count (10000):
+    - Small price range ([1, 1000]): `0.001176 seconds`
+    - Medium price range ([1, 10000]): `0.001335 seconds`
+    - Large price range ([1, 100000]): `0.001382 seconds`
+  - For large order count (100000):
+    - Small price range ([1, 1000]): `0.001738 seconds`
+    - Medium price range ([1, 10000]): `0.00224 seconds`
+    - Large price range ([1, 100000]): `0.002723 seconds`
+- **Medium (count: 10000)**
+  - For small order count (1000):
+    - Small price range ([1, 1000]): `0.008687 seconds`
+    - Medium price range ([1, 10000]): `0.009154 seconds`
+    - Large price range ([1, 100000]): `0.008973 seconds`
+  - For medium order count (10000):
+    - Small price range ([1, 1000]): `0.01119 seconds`
+    - Medium price range ([1, 10000]): `0.01378 seconds`
+    - Large price range ([1, 100000]): `0.01439 seconds`
+  - For large order count (100000):
+    - Small price range ([1, 1000]): `0.01633 seconds`
+    - Medium price range ([1, 10000]): `0.0207 seconds`
+    - Large price range ([1, 100000]): `0.02565 seconds`
+- **Large (count: 100000)**
+  - For small order count (1000):
+    - Small price range ([1, 1000]): `0.08268 seconds`
+    - Medium price range ([1, 10000]): `0.08782 seconds`
+    - Large price range ([1, 100000]): `0.08765 seconds`
+  - For medium order count (10000):
+    - Small price range ([1, 1000]): `0.09444 seconds`
+    - Medium price range ([1, 10000]): `0.1191 seconds`
+    - Large price range ([1, 100000]): `0.1253 seconds`
+  - For large order count (100000):
+    - Small price range ([1, 1000]): `0.1498 seconds`
+    - Medium price range ([1, 10000]): `0.1867 seconds`
+    - Large price range ([1, 100000]): `0.2357 seconds`
 
 
