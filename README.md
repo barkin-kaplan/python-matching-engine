@@ -24,3 +24,38 @@ This matching engine is designed for efficient order matching in financial marke
    ```bash
    git clone https://github.com/barkin-kaplan/python-matching-engine/
    cd matching-engine
+2. Create a virtual environment(Optional)
+   ```bash
+   path/to/your/pyton -m venv .venv
+3. Activate virtual environment(Skip if you skipped step 2)
+   Windows
+   ```bash
+   .venv\Scripts\activate
+   ```
+   Macos
+   ```bash
+   source .venv/bin/activate
+   
+4. Install python dependencies
+   ```bash
+   pip install -r requirements.txt
+5. Run orderbookgui.py for UI demo
+   ```bash
+   python orderbook_gui.py
+6. Run performance tests
+   ```bash
+   python orderbook_perf_test.py
+   
+### Running Unit Tests
+You can run unit tests locally with
+```bash
+pytest
+```
+Generate coverage reports
+   1. only line coverage
+      ```bash
+        pytest --cov --cov-report=html
+   3. line and branch coverage
+      ```bash
+        pytest --cov --cov-branch --cov-report=html
+
