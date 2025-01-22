@@ -136,7 +136,7 @@ def insert_large_test():
     
 def replace_test_unit(replace_count: int, insert_count: int, price_range: int) -> float:
     ob = Orderbook("TEST")
-    orders = initialize_orders(insert_count, price_range)
+    orders = initialize_orders(insert_count, price_range, no_matching=True)
     orders_by_id: Dict[str, Order] = dict()
     for order in orders:
         ob.submit_order(order)
