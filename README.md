@@ -159,4 +159,11 @@ In short using red black tree gives advantage of increasing complexity by O(logN
     - Medium price range ([1, 10000]): `0.1867 seconds`
     - Large price range ([1, 100000]): `0.2357 seconds`
 
+# (G)raphical (U)ser (I)nterface Demonstration
+This interface is developed to demonstrate working mechanisms of this matching engine implementation. Below you can see empty and populated versions of this GUI. Sub sections will introduce you to parts of this GUI.
+
+(images/gui_plain.jpg)
+
+### Settings Page
+![Settings Page](images/sell_levels_highlight.jpg)
 
