@@ -17,8 +17,7 @@ This matching engine is designed for efficient order matching in financial marke
 
 ### Prerequisites
 
-- **Python 3.13.1+** (for Python version implementation)
-
+- **Python 3.13.1+**
 ### Installation Steps
 
 1. Clone the repository:
