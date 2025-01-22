@@ -82,7 +82,7 @@ Here are the performance result on my machine. I'm running on a AMD Ryzen 9 7900
 
 
 ## Insert Operations
-Using red black tree gives advantage of increasing complexity by O(logN) when number of price levels increase while order count is constant. Using doubly linked list with has map has constant time for insertion and deletion therefore complexity increases linearly when order count increases for same price level count. 
+Using red black tree gives advantage of increasing complexity by O(logN) when number of price levels increase while order count is constant. Using doubly linked list with hash map has constant time for insertion and deletion therefore complexity increases linearly when order count increases for same price level count. 
 
 Notice how execution times remain similar when price range is bigger than actual order count, this is naturally normal because price levels are created with order insertions. So the count of price levels are bounded by the number of inserted orders even if the orders' prices are rolled from a bigger range.
 - **Small (count: 1000)**
