@@ -184,3 +184,24 @@ similarly if the trade occurred ath the time of sell order insertion then the tr
 
 ![Trades](images/trades_highlight.jpg)
 
+### Open Orders
+In this section you can view open orders. Notice how 'Buy Levels' and 'Sell Levels' sections aggregate open orders' open quantities at the same level.
+You can select open orders from here in order to 'Replace' or 'Cancel' them.
+
+![Open Orders](images/open_orders_highlight.jpg)
+
+### Selected Order ID
+When you select an order selected order id text will reflect this information.
+
+![Selected Orders](images/selected_order_id_highlight.jpg)
+
+### Replace Form
+You can change an order's price and quantity using this form. If you want to change only the price or the quantity, simply leave the other unchanged. Quantity inserted here will be the remaining open quantity after order's trades, not the addition of reamining open quantity and filled quantity.
+
+![Replace Form](images/replace_form_highlight.jpg)
+
+### Cancel Form
+You can cancel the selected order with this button.
+
+![Cancel Button](images/cancel_order_highlight.jpg)
+
