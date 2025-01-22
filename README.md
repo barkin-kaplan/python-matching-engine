@@ -174,3 +174,13 @@ You can enter the price and quantity information in the related input fields and
 Unmatched buy orders are shown here. Since higher price has higher priority on the buy side, price levels are in reverse sorted order when going down the table.
 ![Buy Levels](images/buy_levels_highlight.jpg)
 
+### Sell Levels
+Unmatched sell orders are shown here. Since lower price has higher priority on the sell side, price levels are in sorted order when going down the table.
+![Sell Levels](images/sell_levels_highlight.jpg)
+
+### Trades
+In this section actual trades are shown. Latest trade is inserted at the top. The side of the trade is determined buy the active order's side meaning that if the trade occurred at the time of buy order insertion then trade's side is 'Buy', 
+similarly if the trade occurred ath the time of sell order insertion then the trade's side is 'Sell'.
+
+![Trades](images/trades_highlight.jpg)
+
