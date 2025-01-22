@@ -5,7 +5,7 @@
 This matching engine is designed for efficient order matching in financial markets. It utilizes a combination of data structures to optimize matching performance and manage price levels and orders. The order book is represented using **Red-Black Trees** as key-value pairs for each side (buy and sell), where the values are **doubly linked lists** combined with **hash maps** for fast cancellation and replacement after finding the price level.
 
 ## Performance Overview
-The insertions are on average done in sub milliseconds (i.e. in the orders of microseconds).
+The insertions are on average done in sub millisecond (i.e. in the orders of microseconds).
 
 ### Features
 
