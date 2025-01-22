@@ -25,7 +25,7 @@ This matching engine is designed for efficient order matching in financial marke
    git clone https://github.com/barkin-kaplan/python-matching-engine/
    ```
    ```bash
-   cd matching-engine
+   cd python-matching-engine
 2. Create a virtual environment(Optional)
    ```bash
    path/to/your/pyton -m venv .venv
