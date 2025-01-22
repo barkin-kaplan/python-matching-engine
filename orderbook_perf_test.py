@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from decimal import Decimal
+import math
 import random
 import time
 from typing import Dict, List, Optional
@@ -107,7 +108,9 @@ def insert_test(count: int, price_range: int) -> float:
         
     end = time.time()
     assert len([o for o in orders if o.status == OrderStatus.Filled]) + len(list(ob.in_order_buy_orders())) + len(list(ob.in_order_sell_orders())) == count
-    return end - start
+    diff = end - start
+    logarithm = int(math.log10(diff))
+    return round(diff, max(4 - logarithm, 0))
 
 def insert_small_test():
     # insert count is small over different price ranges
@@ -150,7 +153,9 @@ def replace_test_unit(replace_count: int, insert_count: int, price_range: int) -
     end = time.time()
     
     assert len([o for o in orders if o.status == OrderStatus.Filled]) + len(list(ob.in_order_buy_orders())) + len(list(ob.in_order_sell_orders())) == insert_count
-    return end - start
+    diff = end - start
+    logarithm = int(math.log10(diff))
+    return round(diff, max(4 - logarithm, 0))
         
 def cancel_test_unit(cancel_count: int, insert_count: int, price_range: int) -> float:
     ob = Orderbook("TEST")
@@ -168,7 +173,9 @@ def cancel_test_unit(cancel_count: int, insert_count: int, price_range: int) -> 
     end = time.time()
     
     assert len([o for o in orders if o.status == OrderStatus.Canceled]) + len(list(ob.in_order_buy_orders())) + len(list(ob.in_order_sell_orders())) == insert_count
-    return end - start
+    diff = end - start
+    logarithm = int(math.log10(diff))
+    return round(diff, max(4 - logarithm, 0))
     
     
 def replace_test(count: int, count_verbal: str):
