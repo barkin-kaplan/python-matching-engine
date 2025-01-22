@@ -161,9 +161,16 @@ In short using red black tree gives advantage of increasing complexity by O(logN
 
 # (G)raphical (U)ser (I)nterface Demonstration
 This interface is developed to demonstrate working mechanisms of this matching engine implementation. Below you can see empty and populated versions of this GUI. Sub sections will introduce you to parts of this GUI.
+### Empty Screenshot
+![GUI Plain](images/gui_plain.jpg)
+### Populated Screenshot
+![GUI Plain](images/gui_populated.jpg)
 
-(images/gui_plain.jpg)
+### Order Entry
+You can enter the price and quantity information in the related input fields and click 'Buy' if you want to send a buy order to orderbook or click 'Sell' if you want to send a sell order to orderbook.
+![Order Entry](images/order_entry_highlight.jpg)
 
-### Settings Page
-![Settings Page](images/sell_levels_highlight.jpg)
+### Buy Levels
+Unmatched buy orders are shown here. Since higher price has higher priority on the buy side, price levels are in reverse sorted order when going down the table.
+![Buy Levels](images/buy_levels_highlight.jpg)
 
